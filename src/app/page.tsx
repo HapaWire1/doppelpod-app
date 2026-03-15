@@ -226,9 +226,10 @@ export default function Home() {
         console.log("[demo] Got AI-generated twin post");
         setDemoOutput(data.text);
       }
-    } catch (err) {
-      console.error("[demo] Generate error:", err);
-      setDemoOutput("Something went wrong generating your twin post. Please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[demo] Generate error:", msg);
+      setDemoOutput(`Error: ${msg}`);
     } finally {
       setDemoLoading(false);
     }
