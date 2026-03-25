@@ -39,8 +39,13 @@ export async function GET(req: NextRequest) {
     const status = data.data?.status; // "processing" | "completed" | "failed"
     const videoUrl = data.data?.video_url;
     const thumbnailUrl = data.data?.thumbnail_url;
+    const errorDetail = data.data?.error;
 
-    return NextResponse.json({ status, videoUrl, thumbnailUrl });
+    if (status === "failed") {
+      console.error("[video-status] Video failed:", JSON.stringify(data.data));
+    }
+
+    return NextResponse.json({ status, videoUrl, thumbnailUrl, error: errorDetail });
   } catch (err) {
     console.error("[video-status] Error:", err);
     return NextResponse.json(

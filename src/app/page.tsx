@@ -16,6 +16,13 @@ import { Waveform } from "@/components/waveform";
 import { Slider } from "@/components/ui/slider";
 import { CoworkModal } from "@/components/cowork-modal";
 import { CheckoutModal } from "@/components/checkout-modal";
+import { AvatarUpload } from "@/components/avatar-upload";
+import { VideoPlayer } from "@/components/video-player";
+import { NavAuth } from "@/components/nav-auth";
+import { AuthGate } from "@/components/auth-gate";
+import { FeatureGate, UsageBadge } from "@/components/feature-gate";
+import { useAuth } from "@/components/auth-provider";
+import { TIER_LIMITS } from "@/lib/tiers";
 import { getSupabase } from "@/lib/supabase";
 
 const features = [
@@ -47,18 +54,20 @@ const features = [
 
 const pricing = [
   {
-    tier: "Free",
-    price: "$0",
-    period: "forever",
-    description: "Get started with your AI twin",
+    tier: "Trial",
+    price: "Free",
+    period: "10 days",
+    description: "Full Elite access — no credit card required",
     features: [
-      "5 AI posts/month",
-      "1 platform",
-      "Basic voice cloning",
-      "Community support",
+      "Unlimited voice generation",
+      "Unlimited video avatars",
+      "Full Claude Cowork (voice + text)",
+      "Priority rendering",
+      "All Elite features for 10 days",
     ],
-    cta: "Start Free",
+    cta: "Start 10-Day Elite Trial",
     highlighted: false,
+    isTrial: true,
   },
   {
     tier: "Pro",
@@ -66,15 +75,16 @@ const pricing = [
     period: "/mo",
     description: "For serious creators and founders",
     features: [
-      "Unlimited AI posts",
+      "Unlimited voice generation",
+      "10 video avatars/month",
+      "Basic Cowork (text-only, 10/day)",
       "3 platforms",
-      "Advanced voice cloning",
       "Virality predictor",
-      "Auto-engagement",
       "Priority support",
     ],
     cta: "Go Pro",
     highlighted: true,
+    isTrial: false,
   },
   {
     tier: "Elite",
@@ -83,14 +93,15 @@ const pricing = [
     description: "Full autopilot for power users",
     features: [
       "Everything in Pro",
+      "Unlimited video avatars",
+      "Full Cowork (voice chat + unlimited)",
+      "Priority rendering",
       "Unlimited platforms",
-      "Custom AI training",
-      "DM autopilot",
-      "Analytics dashboard",
       "Dedicated account manager",
     ],
     cta: "Go Elite",
     highlighted: false,
+    isTrial: false,
   },
 ];
 
@@ -100,6 +111,7 @@ const fadeUp = {
 };
 
 export default function Home() {
+  const { user, effectiveTier, usage, refreshProfile } = useAuth();
   const [email, setEmail] = useState("");
   const [waitlistStatus, setWaitlistStatus] = useState<
     "idle" | "loading" | "success" | "error"
@@ -169,12 +181,21 @@ export default function Home() {
     setAudioProgress(0);
     setAudioDuration(0);
     setTtsError("");
-    // Also reset video state
+  }, []);
+
+  const cleanupVideo = useCallback(() => {
     if (videoPollingRef.current) clearInterval(videoPollingRef.current);
     setVideoLoading(false);
     setVideoProgress(0);
     setVideoUrl(null);
     setVideoError("");
+  }, []);
+
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (videoPollingRef.current) clearInterval(videoPollingRef.current);
+    };
   }, []);
 
   function copyOutput() {
@@ -197,20 +218,6 @@ export default function Home() {
     if (preset !== "custom") setVoiceStrength(presetValues[preset]);
   }
 
-  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarFile(file);
-    // Create preview URL
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-    setAvatarPreview(URL.createObjectURL(file));
-  }
-
-  function clearAvatar() {
-    setAvatarFile(null);
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-    setAvatarPreview(null);
-  }
 
   async function handleGenerateVideo() {
     if (!demoOutput) return;
@@ -246,14 +253,24 @@ export default function Home() {
 
       // Poll for video completion
       let elapsed = 0;
+      let consecutiveErrors = 0;
       videoPollingRef.current = setInterval(async () => {
         elapsed += 3;
-        // Simulate progress (caps at 90% until done)
-        setVideoProgress(Math.min(90, (elapsed / 120) * 90));
+        // Stepped progress: fast 0-30%, medium 30-70%, slow 70-90%
+        let progress: number;
+        if (elapsed < 30) {
+          progress = (elapsed / 30) * 30; // 0-30% in first 30s
+        } else if (elapsed < 120) {
+          progress = 30 + ((elapsed - 30) / 90) * 40; // 30-70% over next 90s
+        } else {
+          progress = 70 + ((elapsed - 120) / 180) * 20; // 70-90% over next 180s
+        }
+        setVideoProgress(Math.min(90, progress));
 
         try {
           const statusRes = await fetch(`/api/video-status?videoId=${videoId}`);
           const statusData = await statusRes.json();
+          consecutiveErrors = 0; // Reset on success
 
           if (statusData.status === "completed" && statusData.videoUrl) {
             if (videoPollingRef.current) clearInterval(videoPollingRef.current);
@@ -263,11 +280,20 @@ export default function Home() {
             console.log("[demo] Video ready!");
           } else if (statusData.status === "failed") {
             if (videoPollingRef.current) clearInterval(videoPollingRef.current);
-            setVideoError("Video generation failed. Please try again.");
+            const detail = statusData.error?.detail || statusData.error?.message;
+            const msg = detail
+              ? `Video generation failed: ${detail}`
+              : "Video generation failed. Please try again.";
+            setVideoError(msg);
             setVideoLoading(false);
           }
         } catch {
-          // Keep polling on network errors
+          consecutiveErrors++;
+          if (consecutiveErrors >= 3) {
+            if (videoPollingRef.current) clearInterval(videoPollingRef.current);
+            setVideoError("Lost connection while generating video. Please try again.");
+            setVideoLoading(false);
+          }
         }
 
         // Timeout after 5 minutes
@@ -424,16 +450,7 @@ export default function Home() {
             <a href="#pricing" className="transition-colors hover:text-foreground">Pricing</a>
             <a href="#demo" className="transition-colors hover:text-foreground">Demo</a>
           </div>
-          <Button
-            size="sm"
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700 transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30"
-            onClick={() => {
-              console.log("Scrolling to waitlist");
-              document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
-            }}
-          >
-            Join Waitlist
-          </Button>
+          <NavAuth />
         </div>
       </nav>
 
@@ -488,11 +505,14 @@ export default function Home() {
               size="lg"
               className="h-12 w-full px-8 text-base sm:h-14 sm:w-auto sm:text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30"
               onClick={() => {
-                console.log("Scrolling to waitlist");
-                document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
+                if (user) {
+                  document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
+                } else {
+                  document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+                }
               }}
             >
-              Join Waitlist
+              {user ? "Try Demo" : "Start 10-Day Elite Trial — Free"}
             </Button>
             <Button
               variant="outline"
@@ -629,7 +649,11 @@ export default function Home() {
                         }`}
                         variant={plan.highlighted ? "default" : "outline"}
                         onClick={() => {
-                          if (plan.tier === "Free") return;
+                          if (plan.isTrial) {
+                            // Trial button — scroll to demo (signup creates trial automatically)
+                            document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
+                            return;
+                          }
                           setCheckoutTier({ tier: plan.tier, price: plan.price, features: plan.features });
                           setCheckoutOpen(true);
                         }}
@@ -663,6 +687,7 @@ export default function Home() {
               Paste 3-5 of your recent posts and watch the magic happen
             </p>
           </motion.div>
+          <AuthGate>
           <Card className="border-border/50 bg-card/50 backdrop-blur transition-all hover:shadow-lg hover:shadow-purple-500/10">
             <CardContent className="space-y-4 p-4 sm:p-6">
               <Textarea
@@ -746,6 +771,7 @@ export default function Home() {
                   </Button>
 
                   {/* Voice section */}
+                  <FeatureGate feature="voice">
                   <div className="border-t border-purple-500/20 pt-4 space-y-4">
                     {/* Voice Preset + Strength — visible before audio is generated */}
                     {!audioReady && (
@@ -905,185 +931,46 @@ export default function Home() {
                       </motion.div>
                     )}
                   </div>
+                  </FeatureGate>
 
                   {/* Video Avatar Section */}
+                  <FeatureGate feature="video">
                   <div className="border-t border-purple-500/20 pt-4 space-y-4">
                     <p className="text-xs font-medium text-purple-400">
                       TALKING VIDEO AVATAR
+                      <UsageBadge feature="video" />
                     </p>
-
-                    {/* Avatar photo upload */}
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-purple-500/30 bg-purple-950/30">
-                        {avatarPreview ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={avatarPreview}
-                            alt="Avatar preview"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-lg">
-                            👤
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <label className="group flex cursor-pointer items-center gap-2 rounded-lg border border-purple-500/20 bg-purple-950/20 px-3 py-2 text-xs text-purple-300 transition-all hover:border-purple-500/40 hover:bg-purple-950/30">
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" x2="12" y1="3" y2="15" />
-                          </svg>
-                          {avatarFile ? avatarFile.name : "Upload your photo"}
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp"
-                            className="hidden"
-                            onChange={handleAvatarChange}
-                          />
-                        </label>
-                        {avatarFile ? (
-                          <button
-                            onClick={clearAvatar}
-                            className="text-[10px] text-muted-foreground hover:text-red-400 transition-colors"
-                          >
-                            Remove photo &middot; use default avatar
-                          </button>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground">
-                            Or use default avatar for instant demo
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Generate Video button */}
-                    {!videoLoading && !videoUrl && (
-                      <Button
-                        variant="outline"
-                        className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20"
-                        onClick={handleGenerateVideo}
-                      >
-                        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polygon points="23 7 16 12 23 17 23 7" />
-                          <rect width="15" height="14" x="1" y="5" rx="2" />
-                        </svg>
-                        Generate Talking Video
-                      </Button>
-                    )}
-
-                    {/* Video loading state */}
-                    {videoLoading && (
-                      <div className="space-y-3 py-2">
-                        <div className="flex items-center gap-3">
-                          <svg className="h-5 w-5 animate-spin text-purple-400" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          <span className="text-sm text-purple-300">
-                            Generating talking avatar...
-                          </span>
-                        </div>
-                        {/* Progress bar */}
-                        <div className="space-y-1">
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-purple-950/50">
-                            <motion.div
-                              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
-                              initial={{ width: "0%" }}
-                              animate={{ width: `${videoProgress}%` }}
-                              transition={{ duration: 0.5, ease: "easeOut" }}
-                            />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground text-right tabular-nums">
-                            {Math.round(videoProgress)}%
-                          </p>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground text-center">
-                          HeyGen is rendering your video — this typically takes 1-2 minutes
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Video player */}
-                    {videoUrl && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-3"
-                      >
-                        <div className="relative overflow-hidden rounded-xl border border-purple-500/30 bg-black">
-                          <video
-                            src={videoUrl}
-                            controls
-                            playsInline
-                            className="w-full max-h-[480px] rounded-xl"
-                            poster={avatarPreview || undefined}
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <a
-                            href={videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1"
-                          >
-                            <Button
-                              variant="outline"
-                              className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10 text-xs"
-                            >
-                              <svg className="mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" x2="12" y1="15" y2="3" />
-                              </svg>
-                              Download
-                            </Button>
-                          </a>
-                          <Button
-                            variant="outline"
-                            className="flex-1 border-purple-500/30 text-purple-300 hover:bg-purple-500/10 text-xs"
-                            onClick={() => {
-                              setVideoUrl(null);
-                              setVideoProgress(0);
-                            }}
-                          >
-                            <svg className="mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="1 4 1 10 7 10" />
-                              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                            </svg>
-                            Regenerate
-                          </Button>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* Video error */}
-                    {videoError && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-950/20 px-3 py-2"
-                      >
-                        <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="12" x2="12" y1="8" y2="12" />
-                          <line x1="12" x2="12.01" y1="16" y2="16" />
-                        </svg>
-                        <div className="space-y-1">
-                          <p className="text-xs text-amber-400">{videoError}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            Get your API key at{" "}
-                            <span className="text-purple-400">heygen.com → Settings → API</span>
-                          </p>
-                        </div>
-                      </motion.div>
-                    )}
+                    <AvatarUpload
+                      file={avatarFile}
+                      preview={avatarPreview}
+                      onFileChange={(file, preview) => {
+                        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                        setAvatarFile(file);
+                        setAvatarPreview(preview);
+                      }}
+                      disabled={videoLoading}
+                    />
+                    <VideoPlayer
+                      videoUrl={videoUrl}
+                      videoLoading={videoLoading}
+                      videoProgress={videoProgress}
+                      videoError={videoError}
+                      posterUrl={avatarPreview || undefined}
+                      onGenerate={handleGenerateVideo}
+                      onRegenerate={() => {
+                        setVideoUrl(null);
+                        setVideoProgress(0);
+                        setVideoError("");
+                      }}
+                      disabled={!demoOutput}
+                    />
                   </div>
+                  </FeatureGate>
                 </motion.div>
               )}
             </CardContent>
           </Card>
+          </AuthGate>
         </div>
       </section>
 
@@ -1215,6 +1102,7 @@ export default function Home() {
         onSuccess={(tier) => {
           setActivePlan(tier);
           setCheckoutOpen(false);
+          refreshProfile();
         }}
       />
     </div>

@@ -1,5 +1,13 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11,6 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/components/auth-provider";
+import { TIER_LIMITS } from "@/lib/tiers";
 
 interface Message {
   role: "user" | "assistant";
@@ -32,15 +42,27 @@ export function CoworkModal({
   onScriptUpdate,
   voiceStrength,
 }: CoworkModalProps) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [script, setScript] = useState(initialScript);
   const [loading, setLoading] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
   const [fallbackError, setFallbackError] = useState("");
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Check Web Speech API support
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    setVoiceSupported(!!SpeechRecognition);
+  }, []);
 
   // Sync script from parent when modal opens
   useEffect(() => {
@@ -77,8 +99,102 @@ export function CoworkModal({
 
   // Cleanup on close
   useEffect(() => {
-    if (!open) cleanupAudio();
+    if (!open) {
+      cleanupAudio();
+      stopListening();
+    }
   }, [open, cleanupAudio]);
+
+  function stopListening() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }
+
+  function toggleVoiceInput() {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    let finalTranscript = "";
+
+    recognition.onstart = () => setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      setInput(finalTranscript + interim);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      // Auto-send if we got a final transcript
+      if (finalTranscript.trim()) {
+        setInput(finalTranscript.trim());
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }
+
+  async function speakText(text: string, index: number) {
+    cleanupAudio();
+
+    try {
+      setSpeakingIdx(index);
+      const res = await fetch("/api/text-to-speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: text.slice(0, 800),
+          stability: voiceStrength / 100,
+        }),
+      });
+
+      if (!res.ok) {
+        setSpeakingIdx(null);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.addEventListener("ended", () => setSpeakingIdx(null));
+      audio.addEventListener("error", () => setSpeakingIdx(null));
+      await audio.play();
+    } catch {
+      setSpeakingIdx(null);
+    }
+  }
 
   async function handleSend() {
     if (!input.trim() || loading) return;
@@ -116,12 +232,18 @@ export function CoworkModal({
       }
 
       const assistantMsg: Message = { role: "assistant", content: data.text };
-      setMessages([...newMessages, assistantMsg]);
+      const updatedMessages = [...newMessages, assistantMsg];
+      setMessages(updatedMessages);
 
       // Check if Claude suggested a script rewrite (look for code blocks)
       const codeBlockMatch = data.text.match(/```[\s\S]*?\n([\s\S]*?)```/);
       if (codeBlockMatch) {
         setScript(codeBlockMatch[1].trim());
+      }
+
+      // Auto-speak Claude's reply
+      if (autoSpeak && data.text) {
+        speakText(data.text, updatedMessages.length - 1);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
@@ -131,39 +253,6 @@ export function CoworkModal({
       ]);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleSpeak(text: string, index: number) {
-    cleanupAudio();
-
-    try {
-      setSpeakingIdx(index);
-      const res = await fetch("/api/text-to-speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: text.slice(0, 800),
-          stability: voiceStrength / 100,
-        }),
-      });
-
-      if (!res.ok) {
-        setSpeakingIdx(null);
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      audioUrlRef.current = url;
-
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.addEventListener("ended", () => setSpeakingIdx(null));
-      audio.addEventListener("error", () => setSpeakingIdx(null));
-      await audio.play();
-    } catch {
-      setSpeakingIdx(null);
     }
   }
 
@@ -179,6 +268,13 @@ export function CoworkModal({
     }
   }
 
+  // Gate: use real tier from auth context
+  const { effectiveTier } = useAuth();
+  const limits = TIER_LIMITS[effectiveTier];
+  const canVoiceChat = limits.coworkVoiceChat;
+  const tierChecked = true;
+  const userTier = effectiveTier;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-background/95 backdrop-blur-xl border-purple-500/20">
@@ -189,11 +285,48 @@ export function CoworkModal({
             </span>
             Claude Cowork
             <span className="ml-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-400 border border-purple-500/20">
-              ELITE
+              {effectiveTier === "trial" || effectiveTier === "elite" ? "ELITE" : "PRO"}
             </span>
+            {/* Voice chat toggle — only for Elite/Trial */}
+            {canVoiceChat ? (
+            <button
+              onClick={() => setAutoSpeak(!autoSpeak)}
+              className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                autoSpeak
+                  ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                  : "bg-muted/30 text-muted-foreground border-border/50"
+              }`}
+              title={autoSpeak ? "Auto-speak replies ON" : "Auto-speak replies OFF"}
+            >
+              <svg
+                className="h-3 w-3"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                {autoSpeak && (
+                  <>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                  </>
+                )}
+              </svg>
+              {autoSpeak ? "Voice On" : "Voice Off"}
+            </button>
+            ) : (
+              <span className="ml-auto rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] font-medium text-yellow-400 border border-yellow-500/20">
+                Voice chat: Elite only
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Collaborate with Claude to refine your script in real-time
+            {canVoiceChat
+              ? "Collaborate with Claude to refine your script — type or use voice chat"
+              : "Collaborate with Claude to refine your script — text mode"}
           </DialogDescription>
         </DialogHeader>
 
@@ -238,6 +371,15 @@ export function CoworkModal({
               <span className="text-[10px] font-medium text-purple-400 uppercase tracking-wider">
                 Chat
               </span>
+              {isListening && (
+                <span className="ml-auto flex items-center gap-1 text-[10px] text-red-400">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  Listening...
+                </span>
+              )}
             </div>
 
             {/* Messages */}
@@ -261,7 +403,7 @@ export function CoworkModal({
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                       {msg.role === "assistant" && i > 0 && (
                         <button
-                          onClick={() => handleSpeak(msg.content, i)}
+                          onClick={() => speakText(msg.content, i)}
                           className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-purple-400 transition-colors"
                         >
                           {speakingIdx === i ? (
@@ -321,10 +463,37 @@ export function CoworkModal({
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input */}
+            {/* Input with voice button */}
             <div className="mt-2 flex gap-2">
+              {voiceSupported && canVoiceChat && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`shrink-0 transition-all ${
+                    isListening
+                      ? "border-red-500/50 bg-red-500/10 text-red-400 hover:bg-red-500/20 animate-pulse"
+                      : "border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
+                  }`}
+                  onClick={toggleVoiceInput}
+                  title={isListening ? "Stop listening" : "Voice input"}
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                </Button>
+              )}
               <Textarea
-                placeholder="Ask Claude to improve your hook, CTA, or tone..."
+                placeholder={isListening ? "Listening... speak now" : "Ask Claude to improve your hook, CTA, or tone..."}
                 className="min-h-[40px] max-h-[80px] resize-none text-xs focus-visible:ring-1 focus-visible:ring-purple-500/50 focus-visible:border-purple-500/50"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

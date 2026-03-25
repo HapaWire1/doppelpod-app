@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { AuthProvider } from "@/components/auth-provider";
+import { TrialBanner } from "@/components/trial-banner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -61,7 +63,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <AuthProvider>
+          <TrialBanner />
+          {children}
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

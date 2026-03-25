@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,6 +40,21 @@ Write only the new post. No explanation, no quotes around it. Keep it the same l
     const text =
       message.content[0].type === "text" ? message.content[0].text : "";
     console.log("[generate-twin] Claude response generated successfully");
+
+    // Save generation for authenticated users
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && text) {
+        await supabase.from("generations").insert({
+          user_id: user.id,
+          input_text: posts,
+          output_text: text,
+        });
+      }
+    } catch (saveErr) {
+      console.warn("[generate-twin] Failed to save generation:", saveErr);
+    }
 
     return NextResponse.json({ text, fallback: false });
   } catch (err: unknown) {

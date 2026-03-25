@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { checkFeatureAccess, incrementUsage } from "@/lib/api-gate";
 
 export async function POST(req: NextRequest) {
   try {
+    // Tier gate
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    let coworkVoiceChat = false;
+    if (user) {
+      const access = await checkFeatureAccess(supabase, user.id, "cowork");
+      if (!access.allowed) {
+        return NextResponse.json({ error: access.error, gated: true }, { status: 403 });
+      }
+      coworkVoiceChat = access.coworkVoiceChat ?? false;
+      // Increment usage
+      await incrementUsage(supabase, user.id, "cowork").catch(() => {});
+    }
+
     const { messages, script, creatorStyle } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -51,7 +67,7 @@ Respond in a conversational, energetic tone. Use short paragraphs. Bold key sugg
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
 
-    return NextResponse.json({ text });
+    return NextResponse.json({ text, coworkVoiceChat });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[cowork] Error:", msg);

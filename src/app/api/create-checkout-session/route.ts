@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,8 +14,21 @@ export async function POST(req: NextRequest) {
 
     const secretKey = process.env.STRIPE_SECRET_KEY;
     if (!secretKey) {
-      // Mock fallback — simulate successful checkout
+      // Mock fallback — simulate successful checkout + update profile
       console.log("[checkout] No STRIPE_SECRET_KEY — returning mock session");
+
+      // Update the user's tier in Supabase for mock flow
+      const supabase = await createServerSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const tierLower = tier.toLowerCase();
+        await supabase
+          .from("profiles")
+          .update({ tier: tierLower })
+          .eq("id", user.id);
+        console.log(`[checkout] Mock: updated ${user.email} to tier: ${tierLower}`);
+      }
+
       return NextResponse.json({
         mock: true,
         tier,
@@ -36,8 +50,9 @@ export async function POST(req: NextRequest) {
         mode: "subscription",
         "line_items[0][price]": priceId,
         "line_items[0][quantity]": "1",
-        success_url: `${origin}?checkout=success&tier=${tier}`,
+        success_url: `${origin}/success?tier=${tier}`,
         cancel_url: `${origin}?checkout=cancel`,
+        "metadata[tier]": tier,
       }),
     });
 

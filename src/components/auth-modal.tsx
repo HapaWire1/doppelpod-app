@@ -1,0 +1,186 @@
+"use client";
+
+import { useState } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/components/auth-provider";
+
+interface AuthModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  defaultTab?: "login" | "signup";
+}
+
+export function AuthModal({
+  open,
+  onOpenChange,
+  defaultTab = "login",
+}: AuthModalProps) {
+  const [tab, setTab] = useState<"login" | "signup">(defaultTab);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
+  const { signIn, signUp } = useAuth();
+
+  function reset() {
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setError("");
+    setSuccess("");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!email || !password) {
+      setError("Email and password are required.");
+      return;
+    }
+
+    if (tab === "signup" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setLoading(true);
+    const result =
+      tab === "login" ? await signIn(email, password) : await signUp(email, password);
+    setLoading(false);
+
+    if (result.error) {
+      setError(result.error);
+    } else if (tab === "signup") {
+      setSuccess("Account created! Check your email to confirm, or log in now.");
+    } else {
+      onOpenChange(false);
+      reset();
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) reset();
+      }}
+    >
+      <DialogContent className="max-w-sm border-purple-500/30 bg-card p-0">
+        <DialogTitle className="sr-only">
+          {tab === "login" ? "Log In" : "Sign Up"}
+        </DialogTitle>
+
+        {/* Tabs */}
+        <div className="flex border-b border-border/50">
+          <button
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              tab === "login"
+                ? "border-b-2 border-purple-500 text-purple-400"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => {
+              setTab("login");
+              setError("");
+              setSuccess("");
+            }}
+          >
+            Log In
+          </button>
+          <button
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              tab === "signup"
+                ? "border-b-2 border-purple-500 text-purple-400"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => {
+              setTab("signup");
+              setError("");
+              setSuccess("");
+            }}
+          >
+            Sign Up
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Email
+            </label>
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="focus-visible:ring-purple-500/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Password
+            </label>
+            <Input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="focus-visible:ring-purple-500/50"
+            />
+          </div>
+
+          {tab === "signup" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Confirm Password
+              </label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="focus-visible:ring-purple-500/50"
+              />
+            </div>
+          )}
+
+          {error && (
+            <p className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              {error}
+            </p>
+          )}
+
+          {success && (
+            <p className="rounded-md bg-green-500/10 px-3 py-2 text-xs text-green-400">
+              {success}
+            </p>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700"
+          >
+            {loading
+              ? "Please wait..."
+              : tab === "login"
+              ? "Log In"
+              : "Create Account"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
