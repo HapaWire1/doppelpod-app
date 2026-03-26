@@ -103,7 +103,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signUp(email: string, password: string) {
     const { error } = await supabase.auth.signUp({ email, password });
-    if (error) return { error: error.message };
+    if (error) {
+      const msg = error.message || "Signup failed. Please try again.";
+      if (msg.includes("rate") || msg.includes("limit") || error.status === 429) {
+        return { error: "Too many signup attempts. Please wait a few minutes and try again." };
+      }
+      if (msg.includes("already registered") || msg.includes("already exists")) {
+        return { error: "This email is already registered. Try logging in instead." };
+      }
+      return { error: msg };
+    }
     return {};
   }
 
