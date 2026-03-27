@@ -82,6 +82,7 @@ export function AuthModal({
     } else {
       onOpenChange(false);
       reset();
+      window.location.href = "/dashboard";
     }
   }
 
