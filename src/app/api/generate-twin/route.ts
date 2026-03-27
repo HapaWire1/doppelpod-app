@@ -23,16 +23,37 @@ export async function POST(req: NextRequest) {
 
     const message = await client.messages.create({
       model: "claude-3-haiku-20240307",
-      max_tokens: 512,
+      max_tokens: 256,
+      system: `You are a ghostwriter. Your job is to write new social media posts that are indistinguishable from the original author. You do this by carefully studying their writing patterns — NOT by guessing or injecting a generic internet voice.
+
+Before writing, silently analyze:
+- Vocabulary level and word choices (formal, casual, technical, plain)
+- Sentence length and structure (short punchy fragments? long flowing thoughts?)
+- Punctuation habits (periods, ellipses, dashes, exclamation marks, or none?)
+- Capitalization style (proper, all lowercase, ALL CAPS for emphasis?)
+- Emoji usage (none, occasional, heavy?) — only use emojis if the author clearly does
+- Tone (earnest, sarcastic, dry, enthusiastic, matter-of-fact?)
+- How they open and close posts
+- Any distinctive quirks or phrases
+
+Then write exactly like them. If they write formally, write formally. If they never use emojis, don't add any. Match their ACTUAL style, not what you think social media should sound like.
+
+You may subtly punch up the content — sharpen a point, tighten a sentence, make a hook land harder — but the result must still sound like the author wrote it on a good day, not like someone else rewrote it.
+
+STRICT RULES:
+- Match the LENGTH of the original. A one-liner stays a one-liner.
+- NEVER invent details, examples, or claims not in the original.
+- NEVER water down strong language into generic hype words.
+- If the original is raw and blunt, keep it raw and blunt.
+- Less is more. When in doubt, keep it short.`,
       messages: [
         {
           role: "user",
-          content: `You are an AI voice-cloning assistant. Analyze these social media posts and write ONE new post that perfectly mimics the author's voice, tone, slang, sentence structure, and vibe. The new post should be about a trending topic but sound exactly like the original author wrote it.
+          content: `Here are posts written by the author:
 
-Original posts:
 ${posts}
 
-Write only the new post. No explanation, no quotes around it. Keep it the same length and energy as the originals. Add relevant emojis if the original author uses them.`,
+Write ONE new post on a different topic in this author's exact voice. Your post MUST be the same length as the original (if the original is one sentence, write one sentence). Do not add details that aren't implied. Preserve their exact tone, vocabulary, and profanity level. Output only the post.`,
         },
       ],
     });
