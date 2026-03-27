@@ -17,14 +17,14 @@ export function AuthModal({
   onOpenChange,
   defaultTab = "login",
 }: AuthModalProps) {
-  const [tab, setTab] = useState<"login" | "signup">(defaultTab);
+  const [tab, setTab] = useState<"login" | "signup" | "forgot">(defaultTab);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
 
   function reset() {
     setEmail("");
@@ -38,6 +38,22 @@ export function AuthModal({
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    if (tab === "forgot") {
+      if (!email) {
+        setError("Email is required.");
+        return;
+      }
+      setLoading(true);
+      const result = await resetPassword(email);
+      setLoading(false);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess("Check your email for a password reset link.");
+      }
+      return;
+    }
 
     if (!email || !password) {
       setError("Email and password are required.");
@@ -79,40 +95,55 @@ export function AuthModal({
     >
       <DialogContent className="max-w-sm border-purple-500/30 bg-card p-0">
         <DialogTitle className="sr-only">
-          {tab === "login" ? "Log In" : "Sign Up"}
+          {tab === "forgot" ? "Reset Password" : tab === "login" ? "Log In" : "Sign Up"}
         </DialogTitle>
 
         {/* Tabs */}
-        <div className="flex border-b border-border/50">
-          <button
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              tab === "login"
-                ? "border-b-2 border-purple-500 text-purple-400"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => {
-              setTab("login");
-              setError("");
-              setSuccess("");
-            }}
-          >
-            Log In
-          </button>
-          <button
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
-              tab === "signup"
-                ? "border-b-2 border-purple-500 text-purple-400"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => {
-              setTab("signup");
-              setError("");
-              setSuccess("");
-            }}
-          >
-            Sign Up
-          </button>
-        </div>
+        {tab === "forgot" ? (
+          <div className="flex items-center border-b border-border/50 px-4 py-3">
+            <button
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => {
+                setTab("login");
+                setError("");
+                setSuccess("");
+              }}
+            >
+              ← Back to Log In
+            </button>
+          </div>
+        ) : (
+          <div className="flex border-b border-border/50">
+            <button
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                tab === "login"
+                  ? "border-b-2 border-purple-500 text-purple-400"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => {
+                setTab("login");
+                setError("");
+                setSuccess("");
+              }}
+            >
+              Log In
+            </button>
+            <button
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                tab === "signup"
+                  ? "border-b-2 border-purple-500 text-purple-400"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => {
+                setTab("signup");
+                setError("");
+                setSuccess("");
+              }}
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div className="space-y-2">
@@ -128,18 +159,34 @@ export function AuthModal({
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Password
-            </label>
-            <Input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="focus-visible:ring-purple-500/50"
-            />
-          </div>
+          {tab !== "forgot" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Password
+              </label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="focus-visible:ring-purple-500/50"
+              />
+            </div>
+          )}
+
+          {tab === "login" && (
+            <button
+              type="button"
+              className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+              onClick={() => {
+                setTab("forgot");
+                setError("");
+                setSuccess("");
+              }}
+            >
+              Forgot password?
+            </button>
+          )}
 
           {tab === "signup" && (
             <div className="space-y-2">
@@ -175,6 +222,8 @@ export function AuthModal({
           >
             {loading
               ? "Please wait..."
+              : tab === "forgot"
+              ? "Send Reset Link"
               : tab === "login"
               ? "Log In"
               : "Create Account"}
