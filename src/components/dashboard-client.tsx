@@ -4,9 +4,9 @@ import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/auth-provider";
 import { CheckoutModal } from "@/components/checkout-modal";
+import { GenerateWidget } from "@/components/generate-widget";
 import { TIER_LIMITS } from "@/lib/tiers";
 import Link from "next/link";
 
@@ -142,45 +142,6 @@ export function DashboardClient({
     } finally {
       setExportLoading(false);
     }
-  }
-
-  // Text generation state
-  const [genInput, setGenInput] = useState("");
-  const [genOutput, setGenOutput] = useState("");
-  const [genLoading, setGenLoading] = useState(false);
-  const [genError, setGenError] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  async function handleGenerate() {
-    if (!genInput.trim()) return;
-    setGenLoading(true);
-    setGenOutput("");
-    setGenError("");
-    try {
-      const res = await fetch("/api/generate-twin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ posts: genInput, mode: "enhance" }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setGenError(data.error || "Generation failed");
-      } else {
-        setGenOutput(data.text || data.twinPost || data.output || "");
-      }
-    } catch (err) {
-      setGenError("Something went wrong. Try again.");
-    } finally {
-      setGenLoading(false);
-    }
-  }
-
-  function handleCopy() {
-    if (!genOutput) return;
-    navigator.clipboard.writeText(genOutput).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
   }
 
   const [voiceUploading, setVoiceUploading] = useState(false);
@@ -529,81 +490,8 @@ export function DashboardClient({
             <CardHeader>
               <CardTitle className="text-lg">Generate</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder="Type or paste your text here..."
-                className="min-h-[120px] resize-none focus-visible:ring-2 focus-visible:ring-purple-500/50 focus-visible:border-purple-500/50"
-                value={genInput}
-                onChange={(e) => setGenInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    if (genInput.trim() && !genLoading) handleGenerate();
-                  }
-                }}
-              />
-              <Button
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30"
-                onClick={handleGenerate}
-                disabled={genLoading || !genInput.trim()}
-              >
-                {genLoading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Generating...
-                  </span>
-                ) : (
-                  "Generate Twin Post"
-                )}
-              </Button>
-
-              {genError && (
-                <div className="rounded-md border border-red-500/20 bg-red-950/20 px-3 py-2">
-                  <p className="text-xs text-red-400">{genError}</p>
-                </div>
-              )}
-
-              {genOutput && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-3 rounded-lg border border-purple-500/30 bg-purple-950/20 p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-purple-400">
-                      YOUR AI TWIN WROTE:
-                    </p>
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium text-purple-400 transition-all hover:bg-purple-500/10 hover:text-purple-300 active:scale-95"
-                      title="Copy to clipboard"
-                    >
-                      {copied ? (
-                        <>
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect width="14" height="14" x="8" y="8" rx="2" />
-                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                          </svg>
-                          Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {genOutput}
-                  </p>
-                </motion.div>
-              )}
+            <CardContent>
+              <GenerateWidget placeholder="Type or paste your text here..." />
             </CardContent>
           </Card>
         </motion.div>
