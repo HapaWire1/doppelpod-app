@@ -390,13 +390,13 @@ export default function Home() {
               See your AI twin in action
             </h2>
             <p className="mt-3 text-sm text-muted-foreground sm:mt-4 sm:text-base">
-              Paste 3-5 of your recent posts and watch the magic happen
+              Type something and watch the magic happen!
             </p>
           </motion.div>
           <AuthGate>
           <Card className="border-border/50 bg-card/50 backdrop-blur transition-all hover:shadow-lg hover:shadow-purple-500/10">
             <CardContent className="p-4 sm:p-6">
-              <GenerateWidget onCoworkOpen={() => setCoworkOpen(true)} />
+              <GenerateWidget onCoworkOpen={() => setCoworkOpen(true)} placeholder="Type or paste your text here..." />
             </CardContent>
           </Card>
           </AuthGate>
