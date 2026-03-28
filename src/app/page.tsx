@@ -220,17 +220,18 @@ export default function Home() {
             >
               {user ? "Try Demo" : "Start 10-Day Elite Trial — Free"}
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-12 w-full px-8 text-base sm:h-14 sm:w-auto sm:text-lg transition-all hover:scale-105 hover:shadow-lg"
-              onClick={() => {
-                console.log("Scrolling to demo");
-                document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              Try Demo
-            </Button>
+            {!user && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-12 w-full px-8 text-base sm:h-14 sm:w-auto sm:text-lg transition-all hover:scale-105 hover:shadow-lg"
+                onClick={() => {
+                  document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                Try Demo
+              </Button>
+            )}
           </div>
         </motion.div>
       </section>
