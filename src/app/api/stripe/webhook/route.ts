@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
+import { buildWelcomeEmail } from "@/lib/welcome-email";
 
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -52,6 +54,24 @@ export async function POST(req: NextRequest) {
           console.error("[stripe-webhook] Supabase update failed:", error.message);
         } else {
           console.log(`[stripe-webhook] Updated ${customerEmail} to tier: ${tier}`);
+
+          // Send welcome email
+          const resendKey = process.env.RESEND_API_KEY;
+          if (resendKey) {
+            try {
+              const resend = new Resend(resendKey);
+              const { subject, html } = buildWelcomeEmail(tier);
+              await resend.emails.send({
+                from: "DoppelPod <noreply@doppelpod.io>",
+                to: customerEmail,
+                subject,
+                html,
+              });
+              console.log(`[stripe-webhook] Welcome email sent to ${customerEmail}`);
+            } catch (emailErr) {
+              console.error("[stripe-webhook] Welcome email failed:", emailErr);
+            }
+          }
         }
       }
     }

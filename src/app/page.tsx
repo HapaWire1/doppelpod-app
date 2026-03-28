@@ -16,6 +16,7 @@ import { CheckoutModal } from "@/components/checkout-modal";
 import { GenerateWidget } from "@/components/generate-widget";
 import { NavAuth } from "@/components/nav-auth";
 import { AuthModal } from "@/components/auth-modal";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { AuthGate } from "@/components/auth-gate";
 import { useAuth } from "@/components/auth-provider";
 import { TIER_LIMITS } from "@/lib/tiers";
@@ -118,6 +119,7 @@ export default function Home() {
   // Checkout modal state
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [signupOpen, setSignupOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [checkoutTier, setCheckoutTier] = useState<{ tier: string; price: string; features: string[] }>({ tier: "", price: "", features: [] });
   const [activePlan, setActivePlan] = useState<string | null>(null);
 
@@ -402,6 +404,18 @@ export default function Home() {
             </CardContent>
           </Card>
           </AuthGate>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => user ? setFeedbackOpen(true) : setSignupOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/10 px-5 py-2.5 text-sm font-medium text-purple-300 hover:bg-purple-500/20 hover:text-purple-200 transition-all"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Got feedback? We&apos;d love to hear it.
+            </button>
+          </div>
         </div>
       </section>
 
@@ -539,6 +553,8 @@ export default function Home() {
 
       {/* Signup Modal (from Start Trial CTAs) */}
       <AuthModal open={signupOpen} onOpenChange={setSignupOpen} defaultTab="signup" />
+
+      <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </div>
   );
 }

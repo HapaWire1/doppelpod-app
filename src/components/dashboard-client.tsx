@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth-provider";
 import { CheckoutModal } from "@/components/checkout-modal";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { GenerateWidget } from "@/components/generate-widget";
 import { TIER_LIMITS } from "@/lib/tiers";
 import Link from "next/link";
@@ -69,6 +70,7 @@ export function DashboardClient({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   async function handleChangePassword() {
     if (!newPassword || !confirmPassword) {
@@ -197,9 +199,19 @@ export function DashboardClient({
             DoppelPod
           </Link>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
               {user.email}
             </span>
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700 transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              <svg className="h-4 w-4 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Feedback
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -347,7 +359,7 @@ export function DashboardClient({
                   >
                     Change Password
                   </Button>
-                  {(activePlan === "pro" || activePlan === "elite") && (
+                  {(activePlan === "pro" || activePlan === "elite") ? (
                     <Button
                       size="sm"
                       variant="outline"
@@ -356,6 +368,18 @@ export function DashboardClient({
                       disabled={billingLoading}
                     >
                       {billingLoading ? "Opening..." : "Manage Subscription"}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="w-full justify-start bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700"
+                      onClick={() => {
+                        setCheckoutTier("pro");
+                        setCheckoutOpen(true);
+                        setShowAccountSettings(false);
+                      }}
+                    >
+                      Upgrade — Subscribe to a Plan
                     </Button>
                   )}
                   <Button
@@ -618,6 +642,8 @@ export function DashboardClient({
         features={tierInfo[checkoutTier].features}
         onSuccess={(tier) => setActivePlan(tier)}
       />
+
+      <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </div>
   );
 }
