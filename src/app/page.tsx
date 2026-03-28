@@ -15,6 +15,7 @@ import { CoworkModal } from "@/components/cowork-modal";
 import { CheckoutModal } from "@/components/checkout-modal";
 import { GenerateWidget } from "@/components/generate-widget";
 import { NavAuth } from "@/components/nav-auth";
+import { AuthModal } from "@/components/auth-modal";
 import { AuthGate } from "@/components/auth-gate";
 import { useAuth } from "@/components/auth-provider";
 import { TIER_LIMITS } from "@/lib/tiers";
@@ -116,6 +117,7 @@ export default function Home() {
 
   // Checkout modal state
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [signupOpen, setSignupOpen] = useState(false);
   const [checkoutTier, setCheckoutTier] = useState<{ tier: string; price: string; features: string[] }>({ tier: "", price: "", features: [] });
   const [activePlan, setActivePlan] = useState<string | null>(null);
 
@@ -214,7 +216,7 @@ export default function Home() {
                 if (user) {
                   document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
                 } else {
-                  document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+                  setSignupOpen(true);
                 }
               }}
             >
@@ -357,8 +359,7 @@ export default function Home() {
                         variant={plan.highlighted ? "default" : "outline"}
                         onClick={() => {
                           if (plan.isTrial) {
-                            // Trial button — scroll to demo (signup creates trial automatically)
-                            document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
+                            setSignupOpen(true);
                             return;
                           }
                           setCheckoutTier({ tier: plan.tier, price: plan.price, features: plan.features });
@@ -535,6 +536,9 @@ export default function Home() {
           refreshProfile();
         }}
       />
+
+      {/* Signup Modal (from Start Trial CTAs) */}
+      <AuthModal open={signupOpen} onOpenChange={setSignupOpen} defaultTab="signup" />
     </div>
   );
 }
