@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const customerEmail = session.customer_email as string | undefined;
-    const tier = (session.metadata as Record<string, string>)?.tier;
+    const tier = (session.metadata as Record<string, string>)?.tier?.toLowerCase();
 
     if (customerEmail && tier) {
       // Update user tier in Supabase

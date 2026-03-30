@@ -78,7 +78,7 @@ export function getEffectiveTier(profile: {
     }
     // Trial expired — fall to paid tier if they subscribed, otherwise expired
     if (profile.paid_tier) {
-      return profile.paid_tier as TierName;
+      return profile.paid_tier.toLowerCase() as TierName;
     }
     return "expired";
   }
