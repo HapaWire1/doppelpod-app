@@ -27,6 +27,12 @@ export async function GET() {
     .eq("id", user.id)
     .single();
 
+  // Sync tier column when trial expires and user has a paid plan
+  if (profile && profile.tier === "trial" && profile.trial_end && new Date(profile.trial_end) <= new Date() && profile.paid_tier) {
+    await supabase.from("profiles").update({ tier: profile.paid_tier }).eq("id", user.id);
+    profile.tier = profile.paid_tier;
+  }
+
   if (!profile) {
     // Auto-create profile if missing (race condition on signup)
     const { data: newProfile } = await supabase

@@ -302,7 +302,7 @@ export function DashboardClient({
                     ? `Trial (${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} left)`
                     : effectiveTier}
                 </span>
-                {(effectiveTier === "expired" || activePlan === "trial") && (
+                {(effectiveTier === "expired" || effectiveTier === "trial") && (
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -312,7 +312,7 @@ export function DashboardClient({
                         setCheckoutOpen(true);
                       }}
                     >
-                      Upgrade to Pro
+                      Go Pro
                     </Button>
                     <Button
                       size="sm"
@@ -327,7 +327,7 @@ export function DashboardClient({
                     </Button>
                   </div>
                 )}
-                {activePlan === "pro" && (
+                {effectiveTier === "pro" && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -337,7 +337,7 @@ export function DashboardClient({
                       setCheckoutOpen(true);
                     }}
                   >
-                    Upgrade to Elite
+                    Go Elite
                   </Button>
                 )}
               </div>
