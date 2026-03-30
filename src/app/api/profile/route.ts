@@ -27,10 +27,25 @@ export async function GET() {
     .eq("id", user.id)
     .single();
 
-  // Sync tier column when trial expires and user has a paid plan
-  if (profile && profile.tier === "trial" && profile.trial_end && new Date(profile.trial_end) <= new Date() && profile.paid_tier) {
-    await supabase.from("profiles").update({ tier: profile.paid_tier }).eq("id", user.id);
-    profile.tier = profile.paid_tier;
+  // Sync profile fields from auth state
+  if (profile) {
+    const updates: Record<string, unknown> = {};
+
+    // Sync tier when trial expires and user has a paid plan
+    if (profile.tier === "trial" && profile.trial_end && new Date(profile.trial_end) <= new Date() && profile.paid_tier) {
+      updates.tier = profile.paid_tier;
+    }
+
+    // Sync email confirmation status
+    const confirmed = !!user.email_confirmed_at;
+    if (profile.email_confirmed !== confirmed) {
+      updates.email_confirmed = confirmed;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await supabase.from("profiles").update(updates).eq("id", user.id);
+      Object.assign(profile, updates);
+    }
   }
 
   if (!profile) {
