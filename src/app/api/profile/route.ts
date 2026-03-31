@@ -57,33 +57,34 @@ export async function GET() {
       .select()
       .single();
     profile = newProfile;
+  }
 
-    // Send verification email for new signups
-    if (newProfile && !newProfile.email_confirmed && user.email) {
-      try {
-        const token = crypto.randomUUID();
-        await supabase
-          .from("profiles")
-          .update({ verification_token: token })
-          .eq("id", user.id);
+  // Auto-send verification email on first visit (unverified + no token = never sent)
+  if (profile && !profile.email_confirmed && !profile.verification_token && user.email) {
+    try {
+      const token = crypto.randomUUID();
+      await supabase
+        .from("profiles")
+        .update({ verification_token: token })
+        .eq("id", user.id);
+      profile.verification_token = token;
 
-        const resendKey = process.env.RESEND_API_KEY;
-        if (resendKey) {
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.doppelpod.io";
-          const verificationUrl = `${baseUrl}/api/verify-email?token=${token}`;
-          const resend = new Resend(resendKey);
-          const { subject, html } = buildVerificationEmail(verificationUrl);
-          await resend.emails.send({
-            from: "DoppelPod <noreply@doppelpod.io>",
-            to: user.email,
-            subject,
-            html,
-          });
-          console.log(`[profile] Verification email sent to ${user.email}`);
-        }
-      } catch (err) {
-        console.error("[profile] Failed to send verification email:", err);
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.doppelpod.io";
+        const verificationUrl = `${baseUrl}/api/verify-email?token=${token}`;
+        const resend = new Resend(resendKey);
+        const { subject, html } = buildVerificationEmail(verificationUrl);
+        await resend.emails.send({
+          from: "DoppelPod <noreply@doppelpod.io>",
+          to: user.email,
+          subject,
+          html,
+        });
+        console.log(`[profile] Verification email sent to ${user.email}`);
       }
+    } catch (err) {
+      console.error("[profile] Failed to send verification email:", err);
     }
   }
 
