@@ -3,8 +3,9 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
+  const { jobId } = await params;
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -15,7 +16,7 @@ export async function GET(
   const { data: job, error } = await supabase
     .from("video_jobs")
     .select("id, status, has_photo, heygen_video_url, error_message, created_at, completed_at")
-    .eq("id", params.jobId)
+    .eq("id", jobId)
     .eq("user_id", user.id)
     .single();
 

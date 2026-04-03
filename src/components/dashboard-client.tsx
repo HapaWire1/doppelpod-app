@@ -30,7 +30,7 @@ interface VideoJob {
 
 interface DashboardClientProps {
   user: { id: string; email: string };
-  profile: { tier: string; voice_id: string | null };
+  profile: { tier: string; voice_id: string | null; heygen_avatar_id?: string | null };
   initialGenerations: Generation[];
   initialVideoJobs: VideoJob[];
 }
@@ -677,6 +677,17 @@ export function DashboardClient({
                   Voice cloning is on its way — your twin will speak in your voice.
                 </p>
               </div>
+              {profile.heygen_avatar_id && (
+                <div className="flex items-center gap-3 rounded-lg border border-green-500/20 bg-green-950/10 px-4 py-3">
+                  <svg className="h-4 w-4 shrink-0 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <p className="text-xs text-green-400">
+                    Custom avatar saved — select &quot;Use my avatar&quot; in the Generate panel to skip the 15-min wait.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>

@@ -45,7 +45,8 @@ export async function GET(req: NextRequest) {
 
   for (const job of jobs || []) {
     try {
-      const result = await processJob(job, supabase, heygenKey, resend, baseUrl);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await processJob(job, supabase as any, heygenKey, resend, baseUrl);
       if (result === "advanced") advanced++;
       if (result === "failed")   failed++;
     } catch (err) {
@@ -64,8 +65,11 @@ async function processJob(
   baseUrl: string
 ): Promise<"advanced" | "failed" | "waiting"> {
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+
   const update = async (fields: Record<string, unknown>) => {
-    await supabase.from("video_jobs").update(fields).eq("id", job.id);
+    await db.from("video_jobs").update(fields).eq("id", job.id);
   };
 
   const fail = async (message: string) => {
@@ -225,14 +229,23 @@ async function processJob(
 
           await update({ status: "completed", heygen_video_url: videoUrl, completed_at: new Date().toISOString() });
 
+          // Save avatar ID to profile so user can reuse it
+          if (job.heygen_avatar_id) {
+            const { error: avatarSaveError } = await db
+              .from("profiles")
+              .update({ heygen_avatar_id: job.heygen_avatar_id as string })
+              .eq("id", job.user_id as string);
+            if (avatarSaveError) console.warn("[process-video-jobs] Avatar save to profile failed:", avatarSaveError.message);
+          }
+
           // Increment usage
-          await incrementUsage(supabase as Parameters<typeof incrementUsage>[0], job.user_id as string, "video").catch(
+          await incrementUsage(db as Parameters<typeof incrementUsage>[0], job.user_id as string, "video").catch(
             (e: unknown) => console.warn("[process-video-jobs] Usage increment failed:", e)
           );
 
           // Send email notification
           if (resend && !job.email_sent) {
-            const { data: profile } = await supabase
+            const { data: profile } = await db
               .from("profiles")
               .select("email")
               .eq("id", job.user_id)
@@ -247,7 +260,7 @@ async function processJob(
                   subject,
                   html,
                 });
-                await supabase.from("video_jobs").update({ email_sent: true }).eq("id", job.id);
+                await db.from("video_jobs").update({ email_sent: true }).eq("id", job.id);
                 console.log(`[process-video-jobs] Email sent for job ${job.id}`);
               } catch (emailErr) {
                 console.warn(`[process-video-jobs] Email failed for job ${job.id}:`, emailErr);

@@ -44,6 +44,22 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
   const [isPhotoJob, setIsPhotoJob] = useState(false);
   const videoPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Saved avatar state
+  const [savedAvatarId, setSavedAvatarId] = useState<string | null>(null);
+  const [useSavedAvatar, setUseSavedAvatar] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/user-avatars")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.avatarId) {
+          setSavedAvatarId(data.avatarId);
+          setUseSavedAvatar(true); // default to saved avatar if one exists
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Track audio progress
   useEffect(() => {
     if (isPlaying && audioRef.current) {
@@ -204,13 +220,18 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
     setVideoProgress(0);
     setVideoUrl(null);
     setVideoError("");
-    const photoJob = !!avatarFile;
-    setIsPhotoJob(photoJob);
+    const usingNewPhoto = !useSavedAvatar && !!avatarFile;
+    const usingPhoto = useSavedAvatar ? !!savedAvatarId : !!avatarFile;
+    setIsPhotoJob(usingPhoto);
 
     try {
       const formData = new FormData();
       formData.append("script", output);
-      if (avatarFile) formData.append("avatar", avatarFile);
+      if (useSavedAvatar && savedAvatarId) {
+        formData.append("savedAvatarId", savedAvatarId);
+      } else if (usingNewPhoto && avatarFile) {
+        formData.append("avatar", avatarFile);
+      }
 
       const res = await fetch("/api/generate-video", {
         method: "POST",
@@ -231,9 +252,9 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
 
       const { jobId } = data;
 
-      // Photo jobs can take 15-25 min; default avatar jobs ~3-5 min
-      const timeoutSecs = photoJob ? 35 * 60 : 10 * 60;
-      const maxProgressSecs = photoJob ? 25 * 60 : 5 * 60;
+      // New photo upload needs avatar creation (15-25 min); saved avatar or default ~3-5 min
+      const timeoutSecs = usingNewPhoto ? 35 * 60 : 10 * 60;
+      const maxProgressSecs = usingNewPhoto ? 25 * 60 : 5 * 60;
 
       let elapsed = 0;
       let consecutiveErrors = 0;
@@ -523,7 +544,37 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                 TALKING VIDEO AVATAR
                 <UsageBadge feature="video" />
               </p>
-              <AvatarUpload
+
+              {/* Saved avatar toggle */}
+              {savedAvatarId && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setUseSavedAvatar(true)}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                      useSavedAvatar
+                        ? "border-purple-500 bg-purple-500/15 text-purple-300"
+                        : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
+                    }`}
+                  >
+                    <span className="block text-[10px] mb-0.5 opacity-60">SAVED</span>
+                    Use my avatar
+                  </button>
+                  <button
+                    onClick={() => setUseSavedAvatar(false)}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                      !useSavedAvatar
+                        ? "border-purple-500 bg-purple-500/15 text-purple-300"
+                        : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
+                    }`}
+                  >
+                    <span className="block text-[10px] mb-0.5 opacity-60">15–25 MIN</span>
+                    Upload new photo
+                  </button>
+                </div>
+              )}
+
+              {/* Photo upload — only shown when not using saved avatar */}
+              {!useSavedAvatar && <AvatarUpload
                 file={avatarFile}
                 preview={avatarPreview}
                 onFileChange={(file, preview) => {
@@ -532,13 +583,13 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                   setAvatarPreview(preview);
                 }}
                 disabled={videoLoading}
-              />
-              {avatarFile && !videoLoading && (
+              />}
+              {!useSavedAvatar && avatarFile && !videoLoading && (
                 <p className="text-[11px] text-amber-400/80">
                   ⏱ Custom photo videos take 15–25 min to generate. We&apos;ll email you when it&apos;s ready.
                 </p>
               )}
-              {avatarFile && videoLoading && isPhotoJob && (
+              {!useSavedAvatar && avatarFile && videoLoading && isPhotoJob && (
                 <p className="text-[11px] text-purple-400/80">
                   Your video is being processed — we&apos;ll email you when it&apos;s ready. You can close this page.
                 </p>

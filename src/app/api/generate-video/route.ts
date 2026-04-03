@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const script = formData.get("script") as string | null;
     const avatarPhoto = formData.get("avatar") as File | null;
+    const savedAvatarId = formData.get("savedAvatarId") as string | null;
 
     if (!script || !script.trim()) {
       return NextResponse.json({ error: "No script provided." }, { status: 400 });
@@ -32,7 +33,67 @@ export async function POST(req: NextRequest) {
       }, { status: 503 });
     }
 
-    // Upload photo asset synchronously if provided
+    // If using a saved avatar, skip photo upload entirely — go straight to video generation
+    if (savedAvatarId) {
+      console.log("[generate-video] Using saved avatar:", savedAvatarId);
+
+      // Still generate audio if configured
+      let audioUrl: string | undefined;
+      const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
+      const elevenLabsVoiceId = process.env.ELEVENLABS_VOICE_ID || "TX3LPaxmHKxFdv7VOQHJ";
+      if (elevenLabsKey) {
+        try {
+          const ttsRes = await fetch(
+            `https://api.elevenlabs.io/v1/text-to-speech/${elevenLabsVoiceId}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "xi-api-key": elevenLabsKey },
+              body: JSON.stringify({
+                text: script.slice(0, 1000),
+                voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+              }),
+            }
+          );
+          if (ttsRes.ok) {
+            const audioBuffer = await ttsRes.arrayBuffer();
+            const uploadRes = await fetch("https://upload.heygen.com/v1/asset", {
+              method: "POST",
+              headers: { "X-Api-Key": apiKey, "Content-Type": "audio/mpeg" },
+              body: audioBuffer,
+            });
+            if (uploadRes.ok) {
+              audioUrl = (await uploadRes.json()).data?.url;
+            }
+          }
+        } catch (e) {
+          console.warn("[generate-video] ElevenLabs audio failed:", e);
+        }
+      }
+
+      const { data: job, error: insertError } = await supabase
+        .from("video_jobs")
+        .insert({
+          user_id: user.id,
+          status: "generating_video",
+          has_photo: true,
+          heygen_avatar_id: savedAvatarId,
+          script: script.slice(0, 2000),
+          audio_url: audioUrl ?? null,
+          retry_count: 0,
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !job) {
+        console.error("[generate-video] Job insert failed:", insertError?.message);
+        return NextResponse.json({ error: "Failed to queue video job." }, { status: 500 });
+      }
+
+      console.log("[generate-video] Saved-avatar job queued:", job.id);
+      return NextResponse.json({ jobId: job.id });
+    }
+
+    // Upload photo asset synchronously if a new photo was provided
     let imageKey: string | undefined;
     let hasPhoto = false;
 
