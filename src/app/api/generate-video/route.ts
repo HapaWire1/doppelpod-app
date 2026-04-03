@@ -57,8 +57,12 @@ export async function POST(req: NextRequest) {
 
       if (assetRes.ok) {
         const assetData = await assetRes.json();
-        talkingPhotoId = assetData.data?.url;
-        console.log("[generate-video] Photo asset uploaded:", talkingPhotoId);
+        console.log("[generate-video] Asset upload response:", JSON.stringify(assetData.data));
+        // Prefer explicit asset_id; fall back to extracting ID from URL path
+        const assetUrl: string | undefined = assetData.data?.url;
+        talkingPhotoId = assetData.data?.asset_id
+          ?? (assetUrl ? assetUrl.split("/").slice(-2, -1)[0] : undefined);
+        console.log("[generate-video] Using talking_photo_id:", talkingPhotoId);
       } else {
         const errBody = await assetRes.text().catch(() => "");
         console.warn(
