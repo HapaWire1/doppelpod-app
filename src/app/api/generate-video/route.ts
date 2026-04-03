@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
       const errText = await videoRes.text();
       console.error("[generate-video] HeyGen error:", videoRes.status, errText);
       return NextResponse.json(
-        { error: `HeyGen API error: ${videoRes.status}` },
+        { error: `HeyGen API error: ${videoRes.status}`, detail: errText, talkingPhotoId },
         { status: videoRes.status }
       );
     }
