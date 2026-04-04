@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import { buildVideoReadyEmail } from "@/lib/video-ready-email";
 import { incrementUsage } from "@/lib/api-gate";
 
-const AVATAR_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const AVATAR_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes
 const VIDEO_TIMEOUT_MS  = 10 * 60 * 1000; // 10 minutes
 const MAX_RETRIES = 3;
 
