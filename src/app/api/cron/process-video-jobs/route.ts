@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import { buildVideoReadyEmail } from "@/lib/video-ready-email";
 import { incrementUsage } from "@/lib/api-gate";
 
-const AVATAR_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const AVATAR_TIMEOUT_MS = 90 * 60 * 1000; // 90 minutes
 const VIDEO_TIMEOUT_MS  = 10 * 60 * 1000; // 10 minutes
 const MAX_RETRIES = 3;
 
@@ -132,7 +132,7 @@ async function processJob(
 
     case "awaiting_avatar": {
       const elapsed = now - new Date(job.updated_at as string).getTime();
-      if (elapsed > AVATAR_TIMEOUT_MS) return fail("Photo avatar training timed out after 60 minutes.");
+      if (elapsed > AVATAR_TIMEOUT_MS) return fail("Photo avatar training timed out after 90 minutes.");
 
       const groupId = job.heygen_avatar_id as string | null;
       if (!groupId) {
