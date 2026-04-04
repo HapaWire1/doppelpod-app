@@ -160,8 +160,8 @@ async function processJob(
         console.log(`[process-video-jobs] Job ${job.id}: train/status=${status}, trainCalled=${trainCalled}`);
 
         if (!trainCalled) {
-          // Phase 1: waiting for group to be ready before calling train
-          if (status === "ready") {
+          // Phase 1: "empty" = group ready, call train now. "pending" = still processing, wait.
+          if (status === "empty" || status === "ready") {
             const trainRes = await fetch("https://api.heygen.com/v2/photo_avatar/train", {
               method: "POST",
               headers: { "X-Api-Key": heygenKey, "Content-Type": "application/json" },
