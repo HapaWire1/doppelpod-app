@@ -107,10 +107,7 @@ export async function POST(req: NextRequest) {
 
       if (assetRes.ok) {
         const assetData = await assetRes.json();
-        const assetUrl: string | undefined = assetData.data?.url;
-        imageKey = assetData.data?.id
-          ?? assetData.data?.asset_id
-          ?? (assetUrl ? assetUrl.split("/").slice(-2, -1)[0] : undefined);
+        imageKey = assetData.data?.image_key ?? assetData.data?.id;
         if (imageKey) hasPhoto = true;
         console.log("[generate-video] Photo uploaded, image_key:", imageKey);
       } else {
