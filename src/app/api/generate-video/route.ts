@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
     if (savedAvatarId) {
       console.log("[generate-video] Using saved avatar:", savedAvatarId);
 
-      // Still generate audio if configured
       let audioUrl: string | undefined;
       const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
       const elevenLabsVoiceId = process.env.ELEVENLABS_VOICE_ID || "TX3LPaxmHKxFdv7VOQHJ";
