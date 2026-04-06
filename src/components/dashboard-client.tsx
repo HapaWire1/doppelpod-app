@@ -105,11 +105,13 @@ export function DashboardClient({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutTier, setCheckoutTier] = useState<"pro" | "elite">("pro");
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeBillingPeriod, setUpgradeBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [activePlan, setActivePlan] = useState(profile.tier);
 
   const tierInfo = {
     pro: {
       price: "$29",
+      yearlyPrice: "$290",
       features: [
         "Unlimited AI posts",
         "All platforms",
@@ -120,6 +122,7 @@ export function DashboardClient({
     },
     elite: {
       price: "$69",
+      yearlyPrice: "$690",
       features: [
         "Everything in Pro",
         "Claude Cowork",
@@ -818,29 +821,48 @@ export function DashboardClient({
           <DialogHeader>
             <DialogTitle className="text-center text-lg">Choose Your Plan</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            {(["pro", "elite"] as const).map((tier) => (
-              <button
-                key={tier}
-                onClick={() => {
-                  setUpgradeModalOpen(false);
-                  setCheckoutTier(tier);
-                  setCheckoutOpen(true);
-                }}
-                className="flex flex-col gap-2 rounded-lg border border-border/50 p-4 text-left hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors"
-              >
-                <span className="font-semibold capitalize text-foreground">{tier}</span>
-                <span className="text-lg font-bold text-purple-400">{tierInfo[tier].price}</span>
-                <ul className="space-y-1 mt-1">
-                  {tierInfo[tier].features.map((f) => (
-                    <li key={f} className="text-xs text-muted-foreground flex items-start gap-1">
-                      <span className="text-purple-400 mt-0.5">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </button>
-            ))}
+
+          {/* Billing toggle */}
+          <div className="flex items-center justify-center gap-3 py-1">
+            <span className={`text-sm font-medium transition-colors ${upgradeBillingPeriod === "monthly" ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
+            <button
+              onClick={() => setUpgradeBillingPeriod(upgradeBillingPeriod === "monthly" ? "yearly" : "monthly")}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${upgradeBillingPeriod === "yearly" ? "bg-gradient-to-r from-purple-600 to-pink-600" : "bg-muted-foreground/30"}`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${upgradeBillingPeriod === "yearly" ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+            <span className={`text-sm font-medium transition-colors ${upgradeBillingPeriod === "yearly" ? "text-foreground" : "text-muted-foreground"}`}>
+              Yearly <span className="text-xs text-green-400">2 months free</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-1">
+            {(["pro", "elite"] as const).map((tier) => {
+              const displayPrice = upgradeBillingPeriod === "yearly" ? tierInfo[tier].yearlyPrice : tierInfo[tier].price;
+              const period = upgradeBillingPeriod === "yearly" ? "/yr" : "/mo";
+              return (
+                <button
+                  key={tier}
+                  onClick={() => {
+                    setUpgradeModalOpen(false);
+                    setCheckoutTier(tier);
+                    setCheckoutOpen(true);
+                  }}
+                  className="flex flex-col gap-2 rounded-lg border border-border/50 p-4 text-left hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors"
+                >
+                  <span className="font-semibold capitalize text-foreground">{tier}</span>
+                  <span className="text-lg font-bold text-purple-400">{displayPrice}<span className="text-xs font-normal text-muted-foreground">{period}</span></span>
+                  <ul className="space-y-1 mt-1">
+                    {tierInfo[tier].features.map((f) => (
+                      <li key={f} className="text-xs text-muted-foreground flex items-start gap-1">
+                        <span className="text-purple-400 mt-0.5">✓</span>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
@@ -849,8 +871,8 @@ export function DashboardClient({
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
         tier={checkoutTier.charAt(0).toUpperCase() + checkoutTier.slice(1)}
-        price={tierInfo[checkoutTier].price}
-        billingPeriod="monthly"
+        price={upgradeBillingPeriod === "yearly" ? tierInfo[checkoutTier].yearlyPrice : tierInfo[checkoutTier].price}
+        billingPeriod={upgradeBillingPeriod}
         features={tierInfo[checkoutTier].features}
         onSuccess={(tier) => setActivePlan(tier)}
       />
