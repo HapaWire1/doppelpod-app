@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const { data: users, error } = await supabase
     .from("profiles")
-    .select("id, email, trial_end")
+    .select("id, email, comms_email, trial_end")
     .is("paid_tier", null)
     .eq("email_confirmed", true)
     .eq("trial_reminder_sent", false)
@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
   let sent = 0;
   for (const user of users || []) {
     if (!user.email) continue;
+    const sendTo = user.comms_email ?? user.email;
 
     const daysLeft = Math.max(1, Math.ceil(
       (new Date(user.trial_end).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
       const { subject, html } = buildTrialReminderEmail(daysLeft, promoCode, `${baseUrl}/#pricing`);
       await resend.emails.send({
         from: "DoppelPod <noreply@doppelpod.io>",
-        to: user.email,
+        to: sendTo,
         subject,
         html,
       });

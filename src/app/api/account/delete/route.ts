@@ -32,13 +32,18 @@ export async function DELETE() {
 
     // Delete from auth.users using service role (required for admin delete)
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (serviceRoleKey) {
-      const adminClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        serviceRoleKey
+    if (!serviceRoleKey) {
+      console.error("[account/delete] SUPABASE_SERVICE_ROLE_KEY not set — cannot delete auth user");
+      return NextResponse.json(
+        { error: "Account deletion is not configured. Please contact support." },
+        { status: 500 }
       );
-      await adminClient.auth.admin.deleteUser(user.id);
     }
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey
+    );
+    await adminClient.auth.admin.deleteUser(user.id);
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,11 +14,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Block authenticated but unconfirmed users
+    // Auth check + email confirmation gate + per-user rate limiting
+    let rateLimitKey = `generate:ip:${req.headers.get("x-forwarded-for") ?? "unknown"}`;
     try {
       const supabaseCheck = await createServerSupabaseClient();
       const { data: { user: authUser } } = await supabaseCheck.auth.getUser();
       if (authUser) {
+        rateLimitKey = `generate:user:${authUser.id}`;
         const { data: prof } = await supabaseCheck
           .from("profiles")
           .select("email_confirmed")
@@ -32,6 +35,15 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // If auth check fails, continue (allows unauthenticated demo usage)
+    }
+
+    // Rate limit: 30 generations per hour per user/IP
+    const rl = checkRateLimit(rateLimitKey, 30, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait before generating again." },
+        { status: 429 }
+      );
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -103,7 +115,7 @@ Rewrite this post in the author's voice but punched up — sharper, more engagin
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("[generate-twin] Error:", errorMessage);
     return NextResponse.json(
-      { error: `Claude API error: ${errorMessage}` },
+      { error: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }

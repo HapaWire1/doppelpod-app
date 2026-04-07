@@ -33,9 +33,23 @@ export async function POST(req: NextRequest) {
       }, { status: 503 });
     }
 
-    // If using a saved avatar, skip photo upload entirely — go straight to video generation
+    // If using saved avatar, look it up server-side from the user's own profile
+    // — never trust the client-supplied value directly
+    let verifiedAvatarId: string | null = null;
     if (savedAvatarId) {
-      console.log("[generate-video] Using saved avatar:", savedAvatarId);
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("heygen_avatar_id")
+        .eq("id", user.id)
+        .single();
+      verifiedAvatarId = profileRow?.heygen_avatar_id ?? null;
+      if (!verifiedAvatarId) {
+        return NextResponse.json({ error: "No saved avatar found. Please upload a photo." }, { status: 400 });
+      }
+    }
+
+    if (verifiedAvatarId) {
+      console.log("[generate-video] Using saved avatar:", verifiedAvatarId);
 
       let audioUrl: string | undefined;
       const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
@@ -75,7 +89,7 @@ export async function POST(req: NextRequest) {
           user_id: user.id,
           status: "generating_video",
           has_photo: true,
-          heygen_avatar_id: savedAvatarId,
+          heygen_avatar_id: verifiedAvatarId,
           script: script.slice(0, 2000),
           audio_url: audioUrl ?? null,
           retry_count: 0,

@@ -31,7 +31,7 @@ interface VideoJob {
 
 interface DashboardClientProps {
   user: { id: string; email: string };
-  profile: { tier: string; voice_id: string | null; heygen_avatar_id?: string | null };
+  profile: { tier: string; voice_id: string | null; heygen_avatar_id?: string | null; comms_email?: string | null };
   initialGenerations: Generation[];
   initialVideoJobs: VideoJob[];
 }
@@ -139,7 +139,8 @@ export function DashboardClient({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStatus, setPasswordStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
@@ -149,16 +150,50 @@ export function DashboardClient({
   const [resendSent, setResendSent] = useState(false);
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
 
-  // Handle ?verify= query param from email verification redirect
+  // Communications email — syncs from server-rendered profile prop (updated on page reload after confirmation)
+  const [commsEmail, setCommsEmail] = useState<string | null>(profile.comms_email ?? null);
+  const [commsEmailInput, setCommsEmailInput] = useState("");
+  const [commsEmailPending, setCommsEmailPending] = useState(false);
+  const [commsEmailPendingTarget, setCommsEmailPendingTarget] = useState<string | null>(null);
+  const [commsEmailLoading, setCommsEmailLoading] = useState(false);
+  const [commsEmailStatus, setCommsEmailStatus] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
+  const [commsEmailChecked, setCommsEmailChecked] = useState(false);
+
+  // Handle ?verify= and ?comms_email= query params from email redirect links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const verify = params.get("verify");
+    const commsResult = params.get("comms_email");
+
     if (verify === "success") {
       setVerifyMessage("Email verified! All features are now unlocked.");
       refreshProfile();
       window.history.replaceState({}, "", "/dashboard");
     } else if (verify === "invalid") {
       setVerifyMessage("Invalid or expired verification link. Try resending.");
+      window.history.replaceState({}, "", "/dashboard");
+    }
+
+    if (commsResult === "confirmed") {
+      setCommsEmailPending(false);
+      setCommsEmailPendingTarget(null);
+      setCommsEmailStatus({ type: "success", message: "Communications email updated successfully." });
+      refreshProfile();
+      window.history.replaceState({}, "", "/dashboard");
+    } else if (commsResult === "cancelled") {
+      setCommsEmailPending(false);
+      setCommsEmailPendingTarget(null);
+      setCommsEmailStatus({ type: "info", message: "Email change cancelled." });
+      window.history.replaceState({}, "", "/dashboard");
+    } else if (commsResult === "expired") {
+      setCommsEmailPending(false);
+      setCommsEmailStatus({ type: "error", message: "That confirmation link has expired. Please try again." });
+      window.history.replaceState({}, "", "/dashboard");
+    } else if (commsResult === "error") {
+      setCommsEmailStatus({ type: "error", message: "Something went wrong. Please try again." });
+      window.history.replaceState({}, "", "/dashboard");
+    } else if (commsResult === "invalid") {
+      setCommsEmailStatus({ type: "error", message: "Invalid confirmation link." });
       window.history.replaceState({}, "", "/dashboard");
     }
   }, [refreshProfile]);
@@ -178,6 +213,54 @@ export function DashboardClient({
       // Silently fail
     } finally {
       setResendLoading(false);
+    }
+  }
+
+  // Check for pending email change request when account settings panel opens
+  useEffect(() => {
+    if (!showAccountSettings || commsEmailChecked) return;
+    setCommsEmailChecked(true);
+    fetch("/api/account/request-email-change")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.pending && data.pendingEmail) {
+          setCommsEmailPending(true);
+          setCommsEmailPendingTarget(data.pendingEmail);
+        }
+      })
+      .catch(() => { /* Silently ignore */ });
+  }, [showAccountSettings, commsEmailChecked]);
+
+  async function handleRequestCommsEmailChange() {
+    const trimmed = commsEmailInput.trim().toLowerCase();
+    if (!trimmed) {
+      setCommsEmailStatus({ type: "error", message: "Please enter an email address." });
+      return;
+    }
+    setCommsEmailLoading(true);
+    setCommsEmailStatus(null);
+    try {
+      const res = await fetch("/api/account/request-email-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newEmail: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCommsEmailStatus({ type: "error", message: data.error || "Request failed." });
+      } else {
+        setCommsEmailPending(true);
+        setCommsEmailPendingTarget(trimmed);
+        setCommsEmailInput("");
+        setCommsEmailStatus({
+          type: "success",
+          message: `A confirmation email has been sent to your current address. Click the link in that email to confirm the change to ${trimmed}.`,
+        });
+      }
+    } catch {
+      setCommsEmailStatus({ type: "error", message: "Something went wrong. Please try again." });
+    } finally {
+      setCommsEmailLoading(false);
     }
   }
 
@@ -431,9 +514,24 @@ export function DashboardClient({
                   </Button>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Email:</span>
-                <span className="text-sm">{user.email}</span>
+              {/* Email display — login email is read-only, comms email is configurable */}
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className="text-sm text-muted-foreground shrink-0">Login email:</span>
+                  <span className="text-sm font-medium">{user.email}</span>
+                  <span className="text-[11px] text-muted-foreground/60">(used to sign in — cannot be changed)</span>
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className="text-sm text-muted-foreground shrink-0">Notifications sent to:</span>
+                  {commsEmail ? (
+                    <span className="text-sm font-medium">{commsEmail}</span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground/60">{user.email} <span className="text-[11px]">(same as login)</span></span>
+                  )}
+                  {commsEmailPending && commsEmailPendingTarget && (
+                    <span className="text-[11px] text-yellow-400">⏳ Pending confirmation → {commsEmailPendingTarget}</span>
+                  )}
+                </div>
               </div>
               {/* Usage stats */}
               {usage && (
@@ -468,6 +566,58 @@ export function DashboardClient({
                 className="border-t border-border/50 pt-4"
               >
                 <div className="flex flex-col gap-2">
+                  {/* Communications email section */}
+                  <div className="rounded-lg border border-border/50 bg-muted/10 p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Communications Email</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        This is where DoppelPod sends video notifications, billing updates, and other messages.
+                        It is <strong className="text-foreground">separate from your login email</strong> — changing it does not affect how you sign in.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Current</p>
+                      <p className="text-sm">
+                        {commsEmail || user.email}
+                        {!commsEmail && <span className="ml-1.5 text-[11px] text-muted-foreground/60">(same as login email)</span>}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Change to</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          placeholder="new@example.com"
+                          className="flex-1 rounded-md border border-border/50 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                          value={commsEmailInput}
+                          onChange={(e) => setCommsEmailInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleRequestCommsEmailChange(); }}
+                          disabled={commsEmailLoading}
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700 shrink-0"
+                          onClick={handleRequestCommsEmailChange}
+                          disabled={commsEmailLoading || !commsEmailInput.trim()}
+                        >
+                          {commsEmailLoading ? "Sending..." : "Send Confirmation"}
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        A confirmation email will be sent to your <em>current</em> address. You must click the link to confirm.
+                      </p>
+                    </div>
+                    {commsEmailStatus && (
+                      <p className={`text-xs leading-relaxed ${
+                        commsEmailStatus.type === "error" ? "text-red-400" :
+                        commsEmailStatus.type === "info"  ? "text-muted-foreground" :
+                        "text-green-400"
+                      }`}>
+                        {commsEmailStatus.message}
+                      </p>
+                    )}
+                  </div>
+
                   <Button
                     size="sm"
                     variant="outline"
@@ -502,7 +652,7 @@ export function DashboardClient({
                     size="sm"
                     variant="outline"
                     className="w-full justify-start border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                    onClick={handleExportData}
+                    onClick={() => setExportConfirmOpen(true)}
                     disabled={exportLoading || effectiveTier === "expired" || !emailConfirmed}
                     title={!emailConfirmed ? "Confirm your email to export data" : effectiveTier === "expired" ? "Upgrade to export your data" : undefined}
                   >
@@ -512,7 +662,7 @@ export function DashboardClient({
                     size="sm"
                     variant="outline"
                     className="w-full justify-start border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                    onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+                    onClick={() => setDeleteConfirmOpen(true)}
                     disabled={!emailConfirmed}
                     title={!emailConfirmed ? "Confirm your email to delete your account" : undefined}
                   >
@@ -559,50 +709,6 @@ export function DashboardClient({
                           setNewPassword("");
                           setConfirmPassword("");
                           setPasswordStatus(null);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Delete Account Confirmation */}
-                {showDeleteConfirm && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="space-y-3 rounded-lg border border-red-500/20 bg-red-950/10 p-4"
-                  >
-                    <p className="text-sm text-red-400">
-                      This will permanently delete your account, all generations, voice data, and cancel any active subscription. This cannot be undone.
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Type <span className="font-mono font-bold text-red-400">DELETE</span> to confirm:
-                    </p>
-                    <input
-                      type="text"
-                      placeholder="Type DELETE to confirm"
-                      className="w-full rounded-md border border-red-500/30 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50"
-                      value={deleteConfirmText}
-                      onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="bg-red-600 text-white border-0 hover:bg-red-700"
-                        onClick={handleDeleteAccount}
-                        disabled={deleteLoading || deleteConfirmText !== "DELETE"}
-                      >
-                        {deleteLoading ? "Deleting..." : "Permanently Delete"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-border/50"
-                        onClick={() => {
-                          setShowDeleteConfirm(false);
-                          setDeleteConfirmText("");
                         }}
                       >
                         Cancel
@@ -803,8 +909,9 @@ export function DashboardClient({
                             {gen.output_text}
                           </p>
                         </div>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {new Date(gen.created_at).toLocaleDateString()}
+                        <span className="shrink-0 text-right text-xs text-muted-foreground">
+                          <span className="block">{new Date(gen.created_at).toLocaleDateString()}</span>
+                          <span className="block text-[10px]">{new Date(gen.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
                         </span>
                       </div>
                     </div>
@@ -878,6 +985,88 @@ export function DashboardClient({
       />
 
       <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+
+      {/* Export Data confirmation dialog */}
+      <Dialog open={exportConfirmOpen} onOpenChange={setExportConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Export Your Data</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            This will download a JSON file containing all of your DoppelPod data — generations, profile info, and usage history. No data will be deleted.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <Button
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700"
+              onClick={() => {
+                setExportConfirmOpen(false);
+                handleExportData();
+              }}
+              disabled={exportLoading}
+            >
+              {exportLoading ? "Exporting..." : "Download Export"}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 border-border/50"
+              onClick={() => setExportConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Account confirmation dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open) setDeleteConfirmText("");
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Delete Account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This will <strong className="text-foreground">permanently delete</strong> your account, all generations, voice data, and cancel any active subscription. <strong className="text-red-400">This cannot be undone.</strong>
+            </p>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Type <span className="font-mono font-bold text-red-400">DELETE</span> to confirm:
+              </p>
+              <input
+                type="text"
+                placeholder="Type DELETE to confirm"
+                className="w-full rounded-md border border-red-500/30 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 bg-red-600 text-white border-0 hover:bg-red-700"
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading || deleteConfirmText !== "DELETE"}
+              >
+                {deleteLoading ? "Deleting..." : "Permanently Delete"}
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 border-border/50"
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  setDeleteConfirmText("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,36 +15,26 @@ export async function POST(req: NextRequest) {
 
     const secretKey = process.env.STRIPE_SECRET_KEY;
     if (!secretKey) {
-      // Mock fallback — simulate successful checkout + update profile
-      console.log("[checkout] No STRIPE_SECRET_KEY — returning mock session");
-
-      // Update the user's tier in Supabase for mock flow
-      const supabase = await createServerSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const tierLower = tier.toLowerCase();
-        await supabase
-          .from("profiles")
-          .update({ paid_tier: tierLower })
-          .eq("id", user.id);
-        console.log(`[checkout] Mock: updated ${user.email} paid_tier to: ${tierLower}`);
-      }
-
-      return NextResponse.json({
-        mock: true,
-        tier,
-        sessionId: `mock_session_${Date.now()}`,
-        message: `Mock checkout for ${tier}. Add STRIPE_SECRET_KEY to enable real payments.`,
-      });
+      console.error("[checkout] STRIPE_SECRET_KEY is not configured");
+      return NextResponse.json({ error: "Payment processing is not available." }, { status: 503 });
     }
 
-    // Real Stripe checkout session — require auth
+    // Stripe checkout session — require auth
     const supabaseReal = await createServerSupabaseClient();
     const { data: { user: stripeUser } } = await supabaseReal.auth.getUser();
     if (!stripeUser) {
       return NextResponse.json(
         { error: "You must be signed in to subscribe." },
         { status: 401 }
+      );
+    }
+
+    // Rate limit: 10 checkout attempts per hour per user
+    const rl = checkRateLimit(`checkout:${stripeUser.id}`, 10, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait before trying again." },
+        { status: 429 }
       );
     }
 

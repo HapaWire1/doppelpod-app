@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { Resend } from "resend";
 import { buildVerificationEmail } from "@/lib/verification-email";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST() {
   const supabase = await createServerSupabaseClient();
@@ -9,6 +10,15 @@ export async function POST() {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  // Rate limit: 5 verification emails per hour per user
+  const rl = checkRateLimit(`verify:${user.id}`, 5, 60 * 60 * 1000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before requesting another verification email." },
+      { status: 429 }
+    );
   }
 
   // Check if already confirmed
@@ -22,11 +32,12 @@ export async function POST() {
     return NextResponse.json({ already_confirmed: true });
   }
 
-  // Generate token and store it
+  // Generate token and store it with a 48-hour expiry
   const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
   await supabase
     .from("profiles")
-    .update({ verification_token: token })
+    .update({ verification_token: token, verification_token_expires_at: expiresAt })
     .eq("id", user.id);
 
   // Send email

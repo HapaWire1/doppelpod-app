@@ -1,5 +1,11 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient, createClient } from "@supabase/supabase-js";
 import { getEffectiveTier, TIER_LIMITS, type TierName } from "./tiers";
+
+function getAdmin(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(url, key);
+}
 
 type Feature = "voice" | "video" | "cowork";
 
@@ -111,10 +117,10 @@ export async function checkFeatureAccess(
     return { allowed: true, effectiveTier, profile, usage: null, coworkVoiceChat: limits.coworkVoiceChat };
   }
 
-  // Reset daily cowork count if new day
+  // Reset daily cowork count if new day — admin client (UPDATE removed from user RLS)
   const today = getTodayDate();
   if (usage.last_cowork_date !== today) {
-    await supabase
+    await getAdmin()
       .from("usage_tracking")
       .update({ cowork_sessions_today: 0, last_cowork_date: today })
       .eq("id", usage.id);
@@ -164,6 +170,9 @@ export async function incrementUsage(
   const period = getCurrentPeriod();
   const today = getTodayDate();
 
+  // All usage increments use service role — UPDATE policy removed from user RLS
+  const admin = getAdmin();
+
   if (feature === "video") {
     const { data } = await supabase
       .from("usage_tracking")
@@ -173,11 +182,16 @@ export async function incrementUsage(
       .single();
 
     if (data) {
-      await supabase
+      await admin
         .from("usage_tracking")
         .update({ video_count: (data.video_count || 0) + 1 })
         .eq("user_id", userId)
         .eq("period", period);
+    } else {
+      // Row missing — insert fresh with count of 1 so the increment is never lost
+      await admin
+        .from("usage_tracking")
+        .insert({ user_id: userId, period, video_count: 1 });
     }
   }
 
@@ -190,7 +204,7 @@ export async function incrementUsage(
       .single();
 
     if (data) {
-      await supabase
+      await admin
         .from("usage_tracking")
         .update({
           cowork_sessions: (data.cowork_sessions || 0) + 1,
@@ -199,6 +213,11 @@ export async function incrementUsage(
         })
         .eq("user_id", userId)
         .eq("period", period);
+    } else {
+      // Row missing — insert fresh with count of 1
+      await admin
+        .from("usage_tracking")
+        .insert({ user_id: userId, period, cowork_sessions: 1, cowork_sessions_today: 1, last_cowork_date: today });
     }
   }
 }

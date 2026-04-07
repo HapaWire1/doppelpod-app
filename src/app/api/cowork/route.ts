@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Sanitise user-supplied inputs injected into system prompt — cap length to limit injection surface
+    const safeCreatorStyle = typeof creatorStyle === "string" ? creatorStyle.slice(0, 500) : "";
+    const safeScript = typeof script === "string" ? script.slice(0, 5000) : "";
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -48,8 +52,8 @@ Your role:
 - When asked, rewrite sections or propose alternatives
 - Be concise — creators are busy
 
-${creatorStyle ? `Creator's style notes: ${creatorStyle}` : ""}
-${script ? `Current working script:\n---\n${script}\n---` : ""}
+${safeCreatorStyle ? `<creator_style>${safeCreatorStyle}</creator_style>` : ""}
+${safeScript ? `<current_script>${safeScript}</current_script>` : ""}
 
 Respond in a conversational, energetic tone. Use short paragraphs. Bold key suggestions with **asterisks**.`;
 
@@ -69,10 +73,9 @@ Respond in a conversational, energetic tone. Use short paragraphs. Bold key sugg
 
     return NextResponse.json({ text, coworkVoiceChat });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[cowork] Error:", msg);
+    console.error("[cowork] Error:", err instanceof Error ? err.message : String(err));
     return NextResponse.json(
-      { error: `Cowork error: ${msg}` },
+      { error: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }

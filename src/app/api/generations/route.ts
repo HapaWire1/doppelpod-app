@@ -12,8 +12,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const offset = parseInt(req.nextUrl.searchParams.get("offset") || "0");
-    const limit = parseInt(req.nextUrl.searchParams.get("limit") || "20");
+    const rawOffset = parseInt(req.nextUrl.searchParams.get("offset") || "0");
+    const rawLimit = parseInt(req.nextUrl.searchParams.get("limit") || "20");
+    // Cap values to prevent unbounded DB queries
+    const offset = Math.max(0, isNaN(rawOffset) ? 0 : rawOffset);
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 20 : rawLimit));
 
     const { data, error, count } = await supabase
       .from("generations")

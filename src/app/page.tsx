@@ -176,9 +176,6 @@ const fadeUp = {
 export default function Home() {
   const { user, effectiveTier, usage, refreshProfile } = useAuth();
   const [email, setEmail] = useState("");
-  const [waitlistStatus, setWaitlistStatus] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
   // Cowork modal state
   const [coworkOpen, setCoworkOpen] = useState(false);
 
@@ -203,27 +200,6 @@ export default function Home() {
 
 
 
-
-  async function handleWaitlist(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email) return;
-
-    setWaitlistStatus("loading");
-
-    try {
-      const supabase = getSupabase();
-      if (!supabase) throw new Error("Supabase not configured");
-
-      const { error } = await supabase.from("waitlist").insert({ email });
-
-      if (error) throw error;
-
-      setWaitlistStatus("success");
-      setEmail("");
-    } catch {
-      setWaitlistStatus("error");
-    }
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -283,9 +259,6 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">10,000+</span> creators on the waitlist
-            </p>
           </div>
 
           <div className="flex w-full flex-col items-center gap-3 pt-2 sm:flex-row sm:justify-center">
@@ -524,8 +497,10 @@ export default function Home() {
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => user ? setFeedbackOpen(true) : setSignupOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/10 px-5 py-2.5 text-sm font-medium text-purple-300 hover:bg-purple-500/20 hover:text-purple-200 transition-all"
+              onClick={() => user ? setFeedbackOpen(true) : undefined}
+              disabled={!user}
+              title={!user ? "Sign in to leave feedback" : undefined}
+              className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/10 px-5 py-2.5 text-sm font-medium text-purple-300 hover:bg-purple-500/20 hover:text-purple-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-purple-500/10 disabled:hover:text-purple-300"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -533,86 +508,6 @@ export default function Home() {
               Got feedback? We&apos;d love to hear it.
             </button>
           </div>
-        </div>
-      </section>
-
-      {/* Waitlist */}
-      <section className="px-4 py-16 sm:py-24" id="waitlist">
-        <div className="mx-auto max-w-lg text-center">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-            transition={{ duration: 0.5 }}
-          >
-            <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">
-              Join the Waitlist
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground sm:mt-4 sm:text-base">
-              Be the first to get access when we launch.
-            </p>
-          </motion.div>
-          <form
-            onSubmit={handleWaitlist}
-            className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row"
-          >
-            <Input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="h-12 flex-1 focus-visible:ring-2 focus-visible:ring-purple-500/50 focus-visible:border-purple-500/50"
-            />
-            <Button
-              type="submit"
-              size="lg"
-              className="h-12 w-full px-8 sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30"
-              disabled={
-                waitlistStatus === "loading" ||
-                !email.includes("@") ||
-                email.length < 5
-              }
-            >
-              {waitlistStatus === "loading" ? (
-                <span className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Joining...
-                </span>
-              ) : (
-                "Join"
-              )}
-            </Button>
-          </form>
-          {waitlistStatus === "success" && (
-            <p className="mt-4 text-sm text-green-400">
-              You&apos;re on the list! We&apos;ll be in touch soon.
-            </p>
-          )}
-          {waitlistStatus === "error" && (
-            <p className="mt-4 text-sm text-red-400">
-              Something went wrong. Please try again.
-            </p>
-          )}
         </div>
       </section>
 

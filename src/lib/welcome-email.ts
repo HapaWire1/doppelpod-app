@@ -72,7 +72,7 @@ export function buildWelcomeEmail(tier: string) {
   <p style="margin-top:32px;font-size:15px;color:#e2e2e2;">— The DoppelPod team</p>
 
   <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#666;">
-    <p style="margin:0;">DoppelPod by Hapawire LLC</p>
+    <p style="margin:0;">DoppelPod powered by Hapawire</p>
   </div>
 </div>`;
 

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   // Find profile with this token
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, verification_token_expires_at")
     .eq("verification_token", token)
     .single();
 
@@ -28,10 +28,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard?verify=invalid", req.url));
   }
 
+  // Check expiry — null means legacy token (issued before expiry was added), allow it
+  if (
+    profile.verification_token_expires_at &&
+    new Date(profile.verification_token_expires_at) < new Date()
+  ) {
+    // Clear the expired token
+    await supabase
+      .from("profiles")
+      .update({ verification_token: null, verification_token_expires_at: null })
+      .eq("id", profile.id);
+    return NextResponse.redirect(new URL("/dashboard?verify=expired", req.url));
+  }
+
   // Mark as verified, clear token
   await supabase
     .from("profiles")
-    .update({ email_confirmed: true, verification_token: null })
+    .update({ email_confirmed: true, verification_token: null, verification_token_expires_at: null })
     .eq("id", profile.id);
 
   return NextResponse.redirect(new URL("/dashboard?verify=success", req.url));

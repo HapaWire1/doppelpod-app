@@ -29,7 +29,7 @@ export function buildTrialReminderEmail(daysLeft: number, promoCode: string, pri
   </p>
 
   <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#666;">
-    <p style="margin:0;">DoppelPod by Hapawire LLC</p>
+    <p style="margin:0;">DoppelPod powered by Hapawire</p>
   </div>
 </div>`;
 

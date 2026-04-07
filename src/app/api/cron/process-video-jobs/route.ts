@@ -10,9 +10,12 @@ const MAX_RETRIES = 3;
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  const querySecret = req.nextUrl.searchParams.get("secret");
   const cronSecret = process.env.CRON_SECRET;
-  if (authHeader !== `Bearer ${cronSecret}` && querySecret !== cronSecret) {
+  if (!cronSecret) {
+    console.error("[cron] CRON_SECRET is not set — refusing to run");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -114,7 +117,11 @@ async function processJob(
         if (!createRes.ok) {
           const body = await createRes.text().catch(() => "");
           console.error(`[process-video-jobs] Avatar group create failed ${createRes.status}:`, body);
-          return retry(`HeyGen avatar_group/create: ${createRes.status} ${body.slice(0, 200)}`);
+          const userMsg = /face/i.test(body)
+            ? "No face detected in your photo. Please upload a clear solo portrait with a visible face."
+            : `HeyGen avatar_group/create: ${createRes.status} ${body.slice(0, 200)}`;
+          // 4xx = bad input, fail immediately. 5xx = transient, retry.
+          return createRes.status < 500 ? fail(userMsg) : retry(userMsg);
         }
 
         const createData = await createRes.json();
@@ -157,10 +164,20 @@ async function processJob(
 
         const data = await res.json();
         const status = data?.data?.status as string;
+        // Extract error message from whichever field HeyGen uses
+        const heygenErr = data?.data?.error_msg || data?.data?.message || data?.data?.error || "unknown";
         console.log(`[process-video-jobs] Job ${job.id}: train/status=${status}, trainCalled=${trainCalled}`);
 
         if (!trainCalled) {
           // Phase 1: "empty" = group ready, call train now. "pending" = still processing, wait.
+          // "failed" here means group creation itself failed (e.g. no face detected in photo).
+          if (status === "failed" || status === "error") {
+            const userMsg = /face/i.test(heygenErr)
+              ? "No face detected in your photo. Please upload a clear solo portrait with a visible face."
+              : `Avatar setup failed: ${heygenErr}`;
+            return fail(userMsg);
+          }
+
           if (status === "empty" || status === "ready") {
             const trainRes = await fetch("https://api.heygen.com/v2/photo_avatar/train", {
               method: "POST",
@@ -169,7 +186,17 @@ async function processJob(
             });
             const trainBody = await trainRes.text();
             console.log(`[process-video-jobs] Job ${job.id}: train response ${trainRes.status}:`, trainBody);
-            if (!trainRes.ok) return retry(`HeyGen train: ${trainRes.status} ${trainBody.slice(0, 200)}`);
+
+            if (!trainRes.ok) {
+              // Check if the train rejection itself is a face-detection error
+              const trainErrMsg = trainBody.slice(0, 400);
+              const userMsg = /face/i.test(trainErrMsg)
+                ? "No face detected in your photo. Please upload a clear solo portrait with a visible face."
+                : `HeyGen train: ${trainRes.status} ${trainErrMsg}`;
+              // Hard fail on 4xx (bad image), retry on 5xx (transient)
+              return trainRes.status < 500 ? fail(userMsg) : retry(userMsg);
+            }
+
             const flowId = JSON.parse(trainBody)?.data?.data?.flow_id ?? "started";
             await update({ heygen_generation_id: flowId });
             return "waiting";
@@ -181,8 +208,11 @@ async function processJob(
           if (status === "ready") {
             await update({ status: "generating_video" });
             return "advanced";
-          } else if (status === "failed") {
-            return fail(`Photo avatar training failed: ${data?.data?.error_msg || "unknown"}`);
+          } else if (status === "failed" || status === "error") {
+            const userMsg = /face/i.test(heygenErr)
+              ? "No face detected in your photo. Please upload a clear solo portrait with a visible face."
+              : `Photo avatar training failed: ${heygenErr}`;
+            return fail(userMsg);
           }
           return "waiting";
         }
@@ -278,16 +308,17 @@ async function processJob(
           if (resend && !job.email_sent) {
             const { data: profile } = await db
               .from("profiles")
-              .select("email")
+              .select("email, comms_email")
               .eq("id", job.user_id)
               .single();
 
             if (profile?.email) {
+              const sendTo = profile.comms_email ?? profile.email;
               try {
                 const { subject, html } = buildVideoReadyEmail(videoUrl, `${baseUrl}/dashboard`);
                 await resend.emails.send({
                   from: "DoppelPod <noreply@doppelpod.io>",
-                  to: profile.email,
+                  to: sendTo,
                   subject,
                   html,
                 });

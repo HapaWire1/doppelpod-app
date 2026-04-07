@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServerSupabaseClient, createAdminSupabaseClient } from "@/lib/supabase-server";
 import { Resend } from "resend";
 import { buildVerificationEmail } from "@/lib/verification-email";
 
@@ -29,6 +29,9 @@ export async function GET() {
     .eq("id", user.id)
     .single();
 
+  // All profile/usage writes use service role — these columns are not user-editable via RLS
+  const admin = createAdminSupabaseClient();
+
   // Sync profile fields from auth state
   if (profile) {
     const updates: Record<string, unknown> = {};
@@ -39,14 +42,14 @@ export async function GET() {
     }
 
     if (Object.keys(updates).length > 0) {
-      await supabase.from("profiles").update(updates).eq("id", user.id);
+      await admin.from("profiles").update(updates).eq("id", user.id);
       Object.assign(profile, updates);
     }
   }
 
   if (!profile) {
     // Auto-create profile if missing (race condition on signup)
-    const { data: newProfile } = await supabase
+    const { data: newProfile } = await admin
       .from("profiles")
       .insert({
         id: user.id,
@@ -63,9 +66,10 @@ export async function GET() {
   if (profile && !profile.email_confirmed && !profile.verification_token && user.email) {
     try {
       const token = crypto.randomUUID();
-      await supabase
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      await admin
         .from("profiles")
-        .update({ verification_token: token })
+        .update({ verification_token: token, verification_token_expires_at: expiresAt })
         .eq("id", user.id);
       profile.verification_token = token;
 
@@ -98,7 +102,7 @@ export async function GET() {
     .single();
 
   if (!usage) {
-    const { data: newUsage } = await supabase
+    const { data: newUsage } = await admin
       .from("usage_tracking")
       .insert({ user_id: user.id, period })
       .select()
@@ -106,9 +110,9 @@ export async function GET() {
     usage = newUsage;
   }
 
-  // Reset daily cowork count if new day
+  // Reset daily cowork count if new day — use admin (UPDATE policy removed from RLS)
   if (usage && usage.last_cowork_date !== getTodayDate()) {
-    await supabase
+    await admin
       .from("usage_tracking")
       .update({ cowork_sessions_today: 0, last_cowork_date: getTodayDate() })
       .eq("id", usage.id);

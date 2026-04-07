@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { VideoPlayer } from "@/components/video-player";
 import { FeatureGate, UsageBadge } from "@/components/feature-gate";
+import { HelpModal } from "@/components/help-modal";
 
 interface GenerateWidgetProps {
   onCoworkOpen?: () => void;
@@ -18,8 +19,10 @@ interface GenerateWidgetProps {
 export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProps) {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
+  const [aiOutput, setAiOutput] = useState(""); // stores AI-generated text so bypass is reversible
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [bypassMode, setBypassMode] = useState(false);
 
   // Voice state
   const [ttsLoading, setTtsLoading] = useState(false);
@@ -47,6 +50,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
   // Saved avatar state
   const [savedAvatarId, setSavedAvatarId] = useState<string | null>(null);
   const [useSavedAvatar, setUseSavedAvatar] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/user-avatars")
@@ -121,9 +125,9 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
     if (preset !== "custom") setVoiceStrength(presetValues[preset]);
   }
 
-  async function handleGenerate() {
-    if (!input.trim()) return;
+  async function runAIEnhancement(rawText: string) {
     setLoading(true);
+    setBypassMode(false);
     cleanupAudio();
     setOutput("");
 
@@ -131,7 +135,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
       const res = await fetch("/api/generate-twin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ posts: input, mode: "enhance" }),
+        body: JSON.stringify({ posts: rawText, mode: "enhance" }),
       });
 
       const data = await res.json();
@@ -141,14 +145,16 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
       }
 
       if (data.fallback || !data.text) {
-        const lines = input.split("\n").filter((l) => l.trim()).slice(0, 3);
+        const lines = rawText.split("\n").filter((l) => l.trim()).slice(0, 3);
         const twinPost =
           lines.length > 0
             ? `AI Twin version:\n\n"${lines[0].trim().replace(/^["']|["']$/g, "")} — but make it 10x more magnetic.\n\nHere's the thing most people won't tell you: consistency beats virality. Your AI twin knows this.\n\n🔥 Drop a follow if this hits different."`
             : "Paste some posts above to see your AI twin in action!";
         setOutput(twinPost);
+        setAiOutput(twinPost);
       } else {
         setOutput(data.text);
+        setAiOutput(data.text);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -156,6 +162,23 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleGenerate() {
+    if (!input.trim()) return;
+
+    // /exact command — bypass AI enhancement and use input verbatim
+    const exactMatch = input.match(/^\/exact\s+([\s\S]+)/i);
+    if (exactMatch) {
+      cleanupAudio();
+      setAiOutput("");
+      setOutput(exactMatch[1].trim());
+      setBypassMode(true);
+      return;
+    }
+
+    setAiOutput("");
+    await runAIEnhancement(input);
   }
 
   async function handleTextToSpeech() {
@@ -301,6 +324,17 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-muted-foreground/50">
+          Tip: start with <span className="font-mono text-purple-400/70">/exact</span> to skip the AI rewrite — e.g. <span className="font-mono text-purple-400/70">/exact &lt;Your text here&gt;</span>
+        </p>
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="shrink-0 text-[11px] text-purple-400/70 hover:text-purple-300 underline underline-offset-2 transition-colors"
+        >
+          Need help?
+        </button>
+      </div>
       <Textarea
         placeholder={placeholder || "Paste 3-5 of your recent posts here (one per line)..."}
         className="min-h-[120px] resize-none sm:min-h-[140px] focus-visible:ring-2 focus-visible:ring-purple-500/50 focus-visible:border-purple-500/50"
@@ -339,8 +373,46 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
           className="space-y-4 rounded-lg border border-purple-500/30 bg-purple-950/20 p-4"
         >
           {/* Header + copy */}
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-purple-400">YOUR AI TWIN WROTE:</p>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs font-medium text-purple-400">
+                {bypassMode ? "YOUR EXACT WORDS:" : "YOUR AI TWIN WROTE:"}
+              </p>
+              {!bypassMode && (
+                <button
+                  onClick={() => {
+                    cleanupAudio();
+                    setOutput(input.replace(/^\/exact\s*/i, "").trim() || input.trim());
+                    setBypassMode(true);
+                  }}
+                  className="rounded-md bg-gradient-to-r from-purple-600/80 to-pink-600/80 hover:from-purple-600 hover:to-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-all shadow-sm shadow-purple-500/20"
+                  title="Use your original text verbatim — skip the AI rewrite"
+                >
+                  use my exact words
+                </button>
+              )}
+              {bypassMode && (
+                <button
+                  onClick={() => {
+                    if (aiOutput) {
+                      // Already have AI output — flip instantly
+                      cleanupAudio();
+                      setOutput(aiOutput);
+                      setBypassMode(false);
+                    } else {
+                      // No AI output yet — run enhancement on the raw text
+                      const raw = input.replace(/^\/exact\s*/i, "").trim() || input.trim();
+                      runAIEnhancement(raw);
+                    }
+                  }}
+                  disabled={loading}
+                  className="rounded-md bg-gradient-to-r from-purple-600/80 to-pink-600/80 hover:from-purple-600 hover:to-pink-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-all shadow-sm shadow-purple-500/20 disabled:opacity-50"
+                  title={aiOutput ? "Switch back to the AI-enhanced version" : "Enhance this text with your AI twin"}
+                >
+                  {loading ? "Enhancing…" : "✦ AI Enhanced"}
+                </button>
+              )}
+            </div>
             <button
               onClick={copyOutput}
               className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium text-purple-400 transition-all hover:bg-purple-500/10 hover:text-purple-300 active:scale-95"
@@ -567,24 +639,41 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                         : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
                     }`}
                   >
-                    <span className="block text-[10px] mb-0.5 opacity-60">15–25 MIN</span>
-                    Upload new photo
+                    <span className="block text-[10px] mb-0.5 opacity-60">NEW / DEFAULT</span>
+                    Upload new photo / Use default
                   </button>
                 </div>
               )}
 
               {/* Photo upload — only shown when not using saved avatar */}
               {!useSavedAvatar && (
-                <AvatarUpload
-                  file={avatarFile}
-                  preview={avatarPreview}
-                  onFileChange={(file, preview) => {
-                    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-                    setAvatarFile(file);
-                    setAvatarPreview(preview);
-                  }}
-                  disabled={videoLoading}
-                />
+                <>
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 px-3 py-2.5 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium text-amber-400">Photo requirements</p>
+                      <span className="text-[10px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">⏱ 15–60 min to process</span>
+                    </div>
+                    <ul className="text-[11px] text-muted-foreground space-y-0.5 list-none">
+                      <li>✓ Single person only — solo portrait, headshot, or full-body</li>
+                      <li>✓ Face clearly visible, well-lit, not obscured</li>
+                      <li>✗ No group shots, pets, objects, or landscapes</li>
+                      <li>✗ No heavy filters, masks, or heavy obstructions</li>
+                    </ul>
+                    <p className="text-[10px] text-muted-foreground/60 pt-0.5">
+                      HeyGen requires a detectable face to animate. Non-portrait images will fail during processing. Once created, your avatar is saved for instant reuse.
+                    </p>
+                  </div>
+                  <AvatarUpload
+                    file={avatarFile}
+                    preview={avatarPreview}
+                    onFileChange={(file, preview) => {
+                      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                      setAvatarFile(file);
+                      setAvatarPreview(preview);
+                    }}
+                    disabled={videoLoading}
+                  />
+                </>
               )}
               {!useSavedAvatar && avatarFile && !videoLoading && (
                 <p className="text-[11px] text-amber-400/80">
@@ -614,6 +703,8 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
           </FeatureGate>
         </motion.div>
       )}
+
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }

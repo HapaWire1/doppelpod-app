@@ -16,10 +16,10 @@ function getSupabaseAdmin(): SupabaseClient | null {
 async function getEmailByCustomerId(supabase: SupabaseClient, customerId: string): Promise<string | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("email")
+    .select("email, comms_email")
     .eq("stripe_customer_id", customerId)
     .single();
-  return data?.email ?? null;
+  return data ? (data.comms_email ?? data.email) : null;
 }
 
 async function sendEmail(to: string, template: { subject: string; html: string }) {
@@ -84,16 +84,19 @@ export async function POST(req: NextRequest) {
       const updates: Record<string, unknown> = { paid_tier: tier };
       if (customerId) updates.stripe_customer_id = customerId;
 
-      const { error } = await supabase
+      const { data: updatedProfile, error } = await supabase
         .from("profiles")
         .update(updates)
-        .eq("email", customerEmail);
+        .eq("email", customerEmail)
+        .select("comms_email")
+        .single();
 
       if (error) {
         console.error("[stripe-webhook] Supabase update failed:", error.message);
       } else {
+        const sendTo = updatedProfile?.comms_email ?? customerEmail;
         console.log(`[stripe-webhook] Updated ${customerEmail} paid_tier to: ${tier}`);
-        await sendEmail(customerEmail, buildWelcomeEmail(tier));
+        await sendEmail(sendTo, buildWelcomeEmail(tier));
       }
     }
   }

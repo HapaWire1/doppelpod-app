@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServerSupabaseClient, createAdminSupabaseClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file type
+    // Validate file type — check MIME type first (client-supplied, not trusted alone)
     const allowedTypes = [
       "audio/mpeg",
       "audio/mp3",
@@ -37,6 +37,33 @@ export async function POST(req: NextRequest) {
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         { error: "Invalid file type. Please upload an audio file (MP3, WAV, OGG, M4A)." },
+        { status: 400 }
+      );
+    }
+
+    // Magic-number validation — read first 12 bytes to verify actual file signature
+    // (file.type is client-supplied and can be spoofed)
+    const headerBytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const isMp3 =
+      (headerBytes[0] === 0xff && (headerBytes[1] & 0xe0) === 0xe0) || // MPEG sync
+      (headerBytes[0] === 0x49 && headerBytes[1] === 0x44 && headerBytes[2] === 0x33); // ID3
+    const isWav =
+      headerBytes[0] === 0x52 && headerBytes[1] === 0x49 &&
+      headerBytes[2] === 0x46 && headerBytes[3] === 0x46; // RIFF
+    const isOgg =
+      headerBytes[0] === 0x4f && headerBytes[1] === 0x67 &&
+      headerBytes[2] === 0x67 && headerBytes[3] === 0x53; // OggS
+    const isWebM =
+      headerBytes[0] === 0x1a && headerBytes[1] === 0x45 &&
+      headerBytes[2] === 0xdf && headerBytes[3] === 0xa3; // EBML/WebM
+    const isMp4 =
+      (headerBytes[4] === 0x66 && headerBytes[5] === 0x74 &&
+       headerBytes[6] === 0x79 && headerBytes[7] === 0x70) || // ftyp box
+      (headerBytes[0] === 0x00 && headerBytes[1] === 0x00 &&
+       headerBytes[2] === 0x00 && headerBytes[3] === 0x20); // MP4 with leading box
+    if (!isMp3 && !isWav && !isOgg && !isWebM && !isMp4) {
+      return NextResponse.json(
+        { error: "Invalid file. Please upload a valid audio file (MP3, WAV, OGG, M4A, WebM)." },
         { status: 400 }
       );
     }
@@ -65,8 +92,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Save voice reference in profile
-    const { error: updateError } = await supabase
+    // Save voice reference in profile — use service role (user-auth client
+    // can only update safe columns; voice_id is permitted but use admin for consistency)
+    const admin = createAdminSupabaseClient();
+    const { error: updateError } = await admin
       .from("profiles")
       .update({ voice_id: filePath, updated_at: new Date().toISOString() })
       .eq("id", user.id);
