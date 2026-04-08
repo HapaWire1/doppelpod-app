@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { checkFeatureAccess } from "@/lib/api-gate";
+import { getVoiceProvider } from "@/lib/voice-provider";
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,40 +49,41 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Shared TTS helper — uses active provider, falls back gracefully
+    const generateAudioUrl = async (): Promise<string | undefined> => {
+      try {
+        const provider = getVoiceProvider();
+        // Use the user's cloned voice if available, otherwise use preset
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select(`${provider.profileColumn}`)
+          .eq("id", user.id)
+          .single();
+        const clonedVoiceId = profileRow?.[provider.profileColumn] as string | null;
+        const voiceId = clonedVoiceId || process.env.ELEVENLABS_VOICE_ID || "TX3LPaxmHKxFdv7VOQHJ";
+
+        console.log(`[generate-video] TTS via ${provider.name}, voice: ${voiceId}`);
+        const audioBuffer = await provider.generateSpeech({ text: script.slice(0, 1000), voiceId });
+
+        const uploadRes = await fetch("https://upload.heygen.com/v1/asset", {
+          method: "POST",
+          headers: { "X-Api-Key": apiKey, "Content-Type": "audio/mpeg" },
+          body: audioBuffer,
+        });
+        if (uploadRes.ok) {
+          return (await uploadRes.json()).data?.url;
+        }
+        console.warn("[generate-video] HeyGen audio upload failed:", uploadRes.status);
+      } catch (e) {
+        console.warn("[generate-video] TTS audio failed:", e);
+      }
+      return undefined;
+    };
+
     if (verifiedAvatarId) {
       console.log("[generate-video] Using saved avatar:", verifiedAvatarId);
 
-      let audioUrl: string | undefined;
-      const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
-      const elevenLabsVoiceId = process.env.ELEVENLABS_VOICE_ID || "TX3LPaxmHKxFdv7VOQHJ";
-      if (elevenLabsKey) {
-        try {
-          const ttsRes = await fetch(
-            `https://api.elevenlabs.io/v1/text-to-speech/${elevenLabsVoiceId}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "xi-api-key": elevenLabsKey },
-              body: JSON.stringify({
-                text: script.slice(0, 1000),
-                voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-              }),
-            }
-          );
-          if (ttsRes.ok) {
-            const audioBuffer = await ttsRes.arrayBuffer();
-            const uploadRes = await fetch("https://upload.heygen.com/v1/asset", {
-              method: "POST",
-              headers: { "X-Api-Key": apiKey, "Content-Type": "audio/mpeg" },
-              body: audioBuffer,
-            });
-            if (uploadRes.ok) {
-              audioUrl = (await uploadRes.json()).data?.url;
-            }
-          }
-        } catch (e) {
-          console.warn("[generate-video] ElevenLabs audio failed:", e);
-        }
-      }
+      const audioUrl = await generateAudioUrl();
 
       const { data: job, error: insertError } = await supabase
         .from("video_jobs")
@@ -131,45 +133,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate ElevenLabs audio if configured
-    let audioUrl: string | undefined;
-    const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
-    const elevenLabsVoiceId = process.env.ELEVENLABS_VOICE_ID || "TX3LPaxmHKxFdv7VOQHJ";
-
-    if (elevenLabsKey) {
-      try {
-        const ttsRes = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${elevenLabsVoiceId}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "xi-api-key": elevenLabsKey },
-            body: JSON.stringify({
-              text: script.slice(0, 1000),
-              voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-            }),
-          }
-        );
-        if (ttsRes.ok) {
-          const audioBuffer = await ttsRes.arrayBuffer();
-          const uploadRes = await fetch("https://upload.heygen.com/v1/asset", {
-            method: "POST",
-            headers: { "X-Api-Key": apiKey, "Content-Type": "audio/mpeg" },
-            body: audioBuffer,
-          });
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            audioUrl = uploadData.data?.url;
-            console.log("[generate-video] Audio uploaded:", audioUrl);
-          } else {
-            console.warn("[generate-video] Audio upload failed:", uploadRes.status);
-          }
-        } else {
-          console.warn("[generate-video] ElevenLabs TTS failed:", ttsRes.status);
-        }
-      } catch (e) {
-        console.warn("[generate-video] ElevenLabs audio failed:", e);
-      }
-    }
+    // Generate TTS audio via active provider
+    const audioUrl = await generateAudioUrl();
+    if (audioUrl) console.log("[generate-video] Audio uploaded:", audioUrl);
 
     // Queue job
     const initialStatus = hasPhoto ? "creating_avatar" : "generating_video";

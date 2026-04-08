@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { checkFeatureAccess } from "@/lib/api-gate";
+import { getVoiceProvider } from "@/lib/voice-provider";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,55 +23,26 @@ export async function POST(req: NextRequest) {
         : 0.5;
 
     if (!text || typeof text !== "string" || !text.trim()) {
-      return NextResponse.json(
-        { error: "No text provided." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No text provided." }, { status: 400 });
     }
 
-    const apiKey = process.env.ELEVENLABS_API_KEY;
-    if (!apiKey) {
-      console.log("[text-to-speech] No ELEVENLABS_API_KEY set — returning unavailable");
-      return NextResponse.json(
-        { error: "Voice generation not configured. Add ELEVENLABS_API_KEY to enable." },
-        { status: 503 }
-      );
+    const provider = getVoiceProvider();
+
+    // Use the user's cloned voice if available, otherwise fall back to preset
+    let voiceId: string = process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9";
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select(`${provider.profileColumn}`)
+        .eq("id", user.id)
+        .single();
+      const clonedId = profile?.[provider.profileColumn] as string | null;
+      if (clonedId) voiceId = clonedId;
     }
 
-    // "Jessica — Playful, Bright, Warm, Conversational" — matches Daisy avatar
-    const voiceId = process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9";
+    console.log(`[text-to-speech] Generating via ${provider.name}, voice: ${voiceId}`);
 
-    console.log("[text-to-speech] Calling ElevenLabs API...");
-
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          text: text.slice(0, 1000), // ElevenLabs limit safety
-          voice_settings: {
-            stability,
-            similarity_boost: 0.75,
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[text-to-speech] ElevenLabs error:", response.status, errorText);
-      return NextResponse.json(
-        { error: `ElevenLabs API error: ${response.status}` },
-        { status: response.status }
-      );
-    }
-
-    const audioBuffer = await response.arrayBuffer();
-    console.log("[text-to-speech] Audio generated, size:", audioBuffer.byteLength);
+    const audioBuffer = await provider.generateSpeech({ text, voiceId, stability });
 
     return new NextResponse(audioBuffer, {
       headers: {
@@ -80,9 +52,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[text-to-speech] Error:", err);
-    return NextResponse.json(
-      { error: "Failed to generate speech." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to generate speech." }, { status: 500 });
   }
 }
