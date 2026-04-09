@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         const uploadRes = await fetch("https://upload.heygen.com/v1/asset", {
           method: "POST",
           headers: { "X-Api-Key": apiKey, "Content-Type": "audio/mpeg" },
-          body: audioBuffer,
+          body: new Uint8Array(audioBuffer),
         });
         if (uploadRes.ok) {
           return (await uploadRes.json()).data?.url;
