@@ -17,7 +17,7 @@ export class FishAudioProvider implements VoiceProvider {
     name,
     mimeType,
   }: {
-    audioBuffer: Buffer;
+    audioBuffer: ArrayBuffer;
     name: string;
     mimeType: string;
   }): Promise<string> {

@@ -18,7 +18,7 @@ export class ElevenLabsProvider implements VoiceProvider {
     audioBuffer,
     name,
   }: {
-    audioBuffer: Buffer;
+    audioBuffer: ArrayBuffer;
     name: string;
     mimeType: string;
   }): Promise<string> {

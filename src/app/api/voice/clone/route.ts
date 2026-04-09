@@ -73,7 +73,7 @@ export async function POST() {
       );
     }
 
-    const audioBuffer = Buffer.from(await fileData.arrayBuffer());
+    const audioBuffer = await fileData.arrayBuffer();
     const ext = profile.voice_id.split(".").pop() || "mp3";
     const mimeType = ext === "wav" ? "audio/wav" : ext === "ogg" ? "audio/ogg" : "audio/mpeg";
 

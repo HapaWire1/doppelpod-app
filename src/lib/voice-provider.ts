@@ -13,7 +13,7 @@ export interface VoiceProvider {
    * Returns the provider-specific voice ID to store and reuse.
    */
   cloneVoice(params: {
-    audioBuffer: Buffer;
+    audioBuffer: ArrayBuffer;
     name: string;       // e.g. "user-{userId}"
     mimeType: string;   // e.g. "audio/mpeg"
   }): Promise<string>;
