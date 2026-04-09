@@ -56,10 +56,10 @@ export async function POST(req: NextRequest) {
         // Use the user's cloned voice if available, otherwise use preset
         const { data: profileRow } = await supabase
           .from("profiles")
-          .select(`${provider.profileColumn}`)
+          .select("elevenlabs_voice_id, fish_voice_id")
           .eq("id", user.id)
           .single();
-        const clonedVoiceId = profileRow?.[provider.profileColumn] as string | null;
+        const clonedVoiceId = (profileRow?.[provider.profileColumn] ?? null) as string | null;
         const voiceId = clonedVoiceId || process.env.ELEVENLABS_VOICE_ID || "TX3LPaxmHKxFdv7VOQHJ";
 
         console.log(`[generate-video] TTS via ${provider.name}, voice: ${voiceId}`);

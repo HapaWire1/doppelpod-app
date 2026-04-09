@@ -33,10 +33,10 @@ export async function POST(req: NextRequest) {
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select(`${provider.profileColumn}`)
+        .select("elevenlabs_voice_id, fish_voice_id")
         .eq("id", user.id)
         .single();
-      const clonedId = profile?.[provider.profileColumn] as string | null;
+      const clonedId = (profile?.[provider.profileColumn] ?? null) as string | null;
       if (clonedId) voiceId = clonedId;
     }
 
