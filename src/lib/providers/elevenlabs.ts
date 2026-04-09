@@ -58,7 +58,7 @@ export class ElevenLabsProvider implements VoiceProvider {
     text: string;
     voiceId: string;
     stability?: number;
-  }): Promise<Buffer> {
+  }): Promise<ArrayBuffer> {
     const id = voiceId || DEFAULT_VOICE_ID;
 
     const res = await fetch(`${BASE_URL}/text-to-speech/${id}`, {
@@ -81,7 +81,7 @@ export class ElevenLabsProvider implements VoiceProvider {
       throw new Error(`[ElevenLabs] generateSpeech failed ${res.status}: ${err}`);
     }
 
-    return res.arrayBuffer();
+    return res.arrayBuffer() as Promise<ArrayBuffer>;
   }
 
   async deleteVoice(voiceId: string): Promise<void> {

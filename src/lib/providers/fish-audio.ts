@@ -59,7 +59,7 @@ export class FishAudioProvider implements VoiceProvider {
     text: string;
     voiceId: string;
     stability?: number;
-  }): Promise<Buffer> {
+  }): Promise<ArrayBuffer> {
     // Fish Audio TTS endpoint
     // stability maps roughly to Fish Audio's "prosody" control
     const res = await fetch(`${BASE_URL}/tts`, {
@@ -83,7 +83,7 @@ export class FishAudioProvider implements VoiceProvider {
       throw new Error(`[FishAudio] generateSpeech failed ${res.status}: ${err}`);
     }
 
-    return res.arrayBuffer();
+    return res.arrayBuffer() as Promise<ArrayBuffer>;
   }
 
   async deleteVoice(voiceId: string): Promise<void> {
