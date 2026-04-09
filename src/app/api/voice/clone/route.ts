@@ -37,7 +37,7 @@ export async function POST() {
     // Fetch profile — need voice_id (storage path) and existing provider voice ID
     const { data: profile } = await admin
       .from("profiles")
-      .select(`voice_id, ${provider.profileColumn}`)
+      .select("voice_id, elevenlabs_voice_id, fish_voice_id")
       .eq("id", user.id)
       .single();
 
@@ -46,7 +46,7 @@ export async function POST() {
     }
 
     // Return existing clone if already done for this provider
-    const existingVoiceId = profile[provider.profileColumn] as string | null;
+    const existingVoiceId = (profile[provider.profileColumn] ?? null) as string | null;
     if (existingVoiceId) {
       console.log(`[voice/clone] Already cloned on ${provider.name}: ${existingVoiceId}`);
       return NextResponse.json({ voiceId: existingVoiceId, provider: provider.name });
