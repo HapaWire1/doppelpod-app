@@ -2,17 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { checkFeatureAccess } from "@/lib/api-gate";
 import { getVoiceProvider } from "@/lib/voice-provider";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    // Tier gate
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const access = await checkFeatureAccess(supabase, user.id, "voice");
-      if (!access.allowed) {
-        return NextResponse.json({ error: access.error, gated: true }, { status: 403 });
-      }
+
+    // Auth required — no anonymous TTS (would burn provider credits)
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Tier gate
+    const access = await checkFeatureAccess(supabase, user.id, "voice");
+    if (!access.allowed) {
+      return NextResponse.json({ error: access.error, gated: true }, { status: 403 });
+    }
+
+    // Rate limit: 30 TTS calls per hour per user
+    const rl = checkRateLimit(`tts:${user.id}`, 30, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait before generating more speech." },
+        { status: 429 }
+      );
     }
 
     const { text, stability: rawStability } = await req.json();

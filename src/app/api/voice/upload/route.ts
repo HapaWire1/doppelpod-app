@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createAdminSupabaseClient } from "@/lib/supabase-server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,15 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit: 10 uploads per hour per user
+    const rl = checkRateLimit(`voice-upload:${user.id}`, 10, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many uploads. Please wait before uploading again." },
+        { status: 429 }
+      );
     }
 
     const formData = await req.formData();

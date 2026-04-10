@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
     if (!message?.trim()) {
       return NextResponse.json({ error: "Message is required." }, { status: 400 });
     }
+    if (typeof message === "string" && message.length > 5000) {
+      return NextResponse.json({ error: "Message too long (max 5000 characters)." }, { status: 400 });
+    }
 
     // Get user info if logged in
     let userEmail = "anonymous";
