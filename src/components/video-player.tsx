@@ -9,18 +9,22 @@ interface VideoPlayerProps {
   videoLoading: boolean;
   videoProgress: number;
   videoError: string;
+  jobStatus?: string;
   posterUrl?: string;
   onGenerate: () => void;
   onRegenerate: () => void;
   disabled?: boolean;
 }
 
-function getStatusMessage(progress: number): string {
-  if (progress < 15) return "Creating your avatar...";
-  if (progress < 40) return "Generating lip-sync...";
-  if (progress < 70) return "Rendering video...";
-  if (progress < 95) return "Almost done...";
-  return "Finalizing...";
+function getStatusMessage(jobStatus?: string): string {
+  switch (jobStatus) {
+    case "pending":          return "Queuing your video...";
+    case "creating_avatar":  return "Creating your AI avatar...";
+    case "awaiting_avatar":  return "Training your AI twin...";
+    case "generating_video": return "Generating video...";
+    case "awaiting_video":   return "Rendering video...";
+    default:                 return "Processing...";
+  }
 }
 
 async function downloadVideo(url: string) {
@@ -46,6 +50,7 @@ export function VideoPlayer({
   videoLoading,
   videoProgress,
   videoError,
+  jobStatus,
   posterUrl,
   onGenerate,
   onRegenerate,
@@ -80,7 +85,7 @@ export function VideoPlayer({
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
             <span className="text-sm text-purple-300">
-              {getStatusMessage(videoProgress)}
+              {getStatusMessage(jobStatus)}
             </span>
           </div>
           {/* Progress bar */}

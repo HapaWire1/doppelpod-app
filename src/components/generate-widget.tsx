@@ -45,7 +45,10 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoError, setVideoError] = useState("");
   const [isPhotoJob, setIsPhotoJob] = useState(false);
+  const [jobStatus, setJobStatus] = useState("");
   const videoPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const avatarPhaseStartRef = useRef<number | null>(null);
+  const videoRenderPhaseStartRef = useRef<number | null>(null);
 
   // Saved avatar state
   const [savedAvatarId, setSavedAvatarId] = useState<string | null>(null);
@@ -240,12 +243,15 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
   async function handleGenerateVideo() {
     if (!output) return;
     setVideoLoading(true);
-    setVideoProgress(0);
+    setVideoProgress(3);
     setVideoUrl(null);
     setVideoError("");
+    setJobStatus("pending");
     const usingNewPhoto = !useSavedAvatar && !!avatarFile;
     const usingPhoto = useSavedAvatar ? !!savedAvatarId : !!avatarFile;
     setIsPhotoJob(usingPhoto);
+    avatarPhaseStartRef.current = null;
+    videoRenderPhaseStartRef.current = null;
 
     try {
       const formData = new FormData();
@@ -275,28 +281,60 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
 
       const { jobId } = data;
 
-      // New photo upload needs avatar creation (15-25 min); saved avatar or default ~3-5 min
-      const timeoutSecs = usingNewPhoto ? 35 * 60 : 10 * 60;
-      const maxProgressSecs = usingNewPhoto ? 25 * 60 : 5 * 60;
+      // Overall timeout: 35 min for new photo, 10 min for saved/default avatar
+      const timeoutMs = usingNewPhoto ? 35 * 60 * 1000 : 10 * 60 * 1000;
+      const startedAt = Date.now();
 
-      let elapsed = 0;
+      // Map job status to a target progress value (0-100)
+      function statusProgress(status: string): number {
+        switch (status) {
+          case "pending":          return 5;
+          case "creating_avatar":  return 10;
+          case "awaiting_avatar": {
+            // Slow-crawl from 15 → 78 over the expected avatar training duration
+            const avatarMaxMs = usingNewPhoto ? 25 * 60 * 1000 : 5 * 60 * 1000;
+            const phaseElapsed = avatarPhaseStartRef.current ? Date.now() - avatarPhaseStartRef.current : 0;
+            return 15 + Math.min(63, (phaseElapsed / avatarMaxMs) * 63);
+          }
+          case "generating_video": return 82;
+          case "awaiting_video": {
+            // Crawl from 85 → 97 over ~5 min of expected render time
+            const phaseElapsed = videoRenderPhaseStartRef.current ? Date.now() - videoRenderPhaseStartRef.current : 0;
+            return 85 + Math.min(12, (phaseElapsed / (5 * 60 * 1000)) * 12);
+          }
+          case "completed":        return 100;
+          default:                 return 5;
+        }
+      }
+
       let consecutiveErrors = 0;
       videoPollingRef.current = setInterval(async () => {
-        elapsed += 10;
-        setVideoProgress(Math.min(90, (elapsed / maxProgressSecs) * 90));
-
         try {
           const statusRes = await fetch(`/api/video-jobs/${jobId}`);
           const job = await statusRes.json();
           consecutiveErrors = 0;
 
-          if (job.status === "completed" && job.heygen_video_url) {
+          const status = job.status as string;
+          setJobStatus(status);
+
+          // Track when we first enter each long-running phase
+          if (status === "awaiting_avatar" && avatarPhaseStartRef.current === null) {
+            avatarPhaseStartRef.current = Date.now();
+          }
+          if (status === "awaiting_video" && videoRenderPhaseStartRef.current === null) {
+            videoRenderPhaseStartRef.current = Date.now();
+          }
+
+          setVideoProgress(statusProgress(status));
+
+          if (status === "completed" && job.heygen_video_url) {
             if (videoPollingRef.current) clearInterval(videoPollingRef.current);
             setVideoProgress(100);
             setVideoUrl(job.heygen_video_url);
             setVideoLoading(false);
-          } else if (job.status === "failed") {
+          } else if (status === "failed") {
             if (videoPollingRef.current) clearInterval(videoPollingRef.current);
+            setJobStatus("failed");
             setVideoError(job.error_message || "Video generation failed. Please try again.");
             setVideoLoading(false);
           }
@@ -309,7 +347,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
           }
         }
 
-        if (elapsed > timeoutSecs) {
+        if (Date.now() - startedAt > timeoutMs) {
           if (videoPollingRef.current) clearInterval(videoPollingRef.current);
           setVideoError("Video generation timed out. Please try again.");
           setVideoLoading(false);
@@ -690,12 +728,14 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                 videoLoading={videoLoading}
                 videoProgress={videoProgress}
                 videoError={videoError}
+                jobStatus={jobStatus}
                 posterUrl={avatarPreview || undefined}
                 onGenerate={handleGenerateVideo}
                 onRegenerate={() => {
                   setVideoUrl(null);
                   setVideoProgress(0);
                   setVideoError("");
+                  setJobStatus("");
                 }}
                 disabled={!output}
               />
