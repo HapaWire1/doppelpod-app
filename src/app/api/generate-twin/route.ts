@@ -5,7 +5,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    const { posts, mode } = await req.json();
+    const { posts, mode, tone, avoidSlang } = await req.json();
 
     if (!posts || typeof posts !== "string" || !posts.trim()) {
       return NextResponse.json(
@@ -86,7 +86,7 @@ STRICT RULES:
 
 ${posts}
 
-Rewrite this post in the author's voice but punched up — sharper, more engaging, better hooks. Stay on the SAME topic unless the author explicitly asks to change it. Keep the same length. Do not invent new details or claims. Preserve their exact tone, vocabulary, and profanity level. Output only the rewritten post.`,
+Rewrite this post in the author's voice but punched up — sharper, more engaging, better hooks. Stay on the SAME topic unless the author explicitly asks to change it. Keep the same length. Do not invent new details or claims. Preserve their exact tone, vocabulary, and profanity level.${tone === "professional" ? " Write in a professional, polished tone — formal language, no casual abbreviations." : tone === "casual" ? " Write in a casual, conversational tone — approachable and relaxed." : ""}${avoidSlang ? " Avoid slang and informal expressions." : ""} Output only the rewritten post.`,
         },
       ],
     });

@@ -24,6 +24,10 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
   const [copied, setCopied] = useState(false);
   const [bypassMode, setBypassMode] = useState(false);
 
+  // Tone / audience presets
+  const [tone, setTone] = useState<"professional" | "neutral" | "casual">("neutral");
+  const [avoidSlang, setAvoidSlang] = useState(false);
+
   // Voice state
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsError, setTtsError] = useState("");
@@ -138,7 +142,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
       const res = await fetch("/api/generate-twin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ posts: rawText, mode: "enhance" }),
+        body: JSON.stringify({ posts: rawText, mode: "enhance", tone, avoidSlang }),
       });
 
       const data = await res.json();
@@ -385,6 +389,39 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
           }
         }}
       />
+      {/* Tone presets */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground shrink-0">Tone:</span>
+          {(["professional", "neutral", "casual"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTone(t)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium capitalize transition-all ${
+                tone === t
+                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                  : "text-muted-foreground border border-border/40 hover:border-purple-500/30 hover:text-purple-400"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setAvoidSlang(!avoidSlang)}
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all border ${
+            avoidSlang
+              ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+              : "text-muted-foreground border-border/40 hover:border-purple-500/30 hover:text-purple-400"
+          }`}
+        >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${avoidSlang ? "bg-purple-400" : "bg-muted-foreground/40"}`} />
+          Avoid slang
+        </button>
+      </div>
+
       <Button
         className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30"
         onClick={handleGenerate}
