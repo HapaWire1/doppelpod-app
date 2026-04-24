@@ -125,13 +125,13 @@ export function AvatarUpload({ file, preview, onFileChange, disabled }: AvatarUp
           {file ? (
             <button
               onClick={handleRemove}
-              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-400 transition-colors"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
             >
               <X className="h-2.5 w-2.5" />
               Remove photo &middot; use default avatar
             </button>
           ) : (
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Drop a photo or click to upload &middot; default avatar for instant demo
             </p>
           )}

@@ -533,19 +533,19 @@ export function DashboardClient({
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Usage This Month</span>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5">
-                      <p className="text-[10px] text-muted-foreground">Videos</p>
+                      <p className="text-xs text-muted-foreground">Videos</p>
                       <p className="text-sm font-semibold">
                         {usage.video_count}
                         {limits.videoLimit !== null && <span className="text-muted-foreground font-normal">/{limits.videoLimit}</span>}
-                        {limits.videoLimit === null && <span className="text-muted-foreground font-normal text-[10px] ml-1">unlimited</span>}
+                        {limits.videoLimit === null && <span className="text-muted-foreground font-normal text-xs ml-1">unlimited</span>}
                       </p>
                     </div>
                     <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5">
-                      <p className="text-[10px] text-muted-foreground">Cowork Today</p>
+                      <p className="text-xs text-muted-foreground">Cowork Today</p>
                       <p className="text-sm font-semibold">
                         {usage.cowork_sessions_today}
                         {limits.coworkDailyLimit !== null && <span className="text-muted-foreground font-normal">/{limits.coworkDailyLimit}</span>}
-                        {limits.coworkDailyLimit === null && <span className="text-muted-foreground font-normal text-[10px] ml-1">unlimited</span>}
+                        {limits.coworkDailyLimit === null && <span className="text-muted-foreground font-normal text-xs ml-1">unlimited</span>}
                       </p>
                     </div>
                   </div>
@@ -870,7 +870,7 @@ export function DashboardClient({
                               </svg>
                             )}
                             {job.has_photo && (
-                              <span className="text-[10px] text-muted-foreground">Custom photo</span>
+                              <span className="text-xs text-muted-foreground">Custom photo</span>
                             )}
                           </div>
                           {job.status === "failed" && job.error_message && (
@@ -881,7 +881,7 @@ export function DashboardClient({
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {new Date(job.created_at).toLocaleDateString()}
                           </span>
                           {job.status === "completed" && job.heygen_video_url && (
@@ -955,7 +955,7 @@ export function DashboardClient({
                         </div>
                         <span className="shrink-0 text-right text-xs text-muted-foreground">
                           <span className="block">{new Date(gen.created_at).toLocaleDateString()}</span>
-                          <span className="block text-[10px]">{new Date(gen.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
+                          <span className="block text-xs">{new Date(gen.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
                         </span>
                       </div>
                     </div>

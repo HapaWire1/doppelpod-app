@@ -284,14 +284,14 @@ export function CoworkModal({
               C
             </span>
             Claude Cowork
-            <span className="ml-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-400 border border-purple-500/20">
+            <span className="ml-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-xs font-medium text-purple-400 border border-purple-500/20">
               {effectiveTier === "trial" || effectiveTier === "elite" ? "ELITE" : "PRO"}
             </span>
             {/* Voice chat toggle — only for Elite/Trial */}
             {canVoiceChat ? (
             <button
               onClick={() => setAutoSpeak(!autoSpeak)}
-              className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+              className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border transition-colors ${
                 autoSpeak
                   ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
                   : "bg-muted/30 text-muted-foreground border-border/50"
@@ -318,7 +318,7 @@ export function CoworkModal({
               {autoSpeak ? "Voice On" : "Voice Off"}
             </button>
             ) : (
-              <span className="ml-auto rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] font-medium text-yellow-400 border border-yellow-500/20">
+              <span className="ml-auto rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-400 border border-yellow-500/20">
                 Voice chat: Elite only
               </span>
             )}
@@ -368,11 +368,11 @@ export function CoworkModal({
               >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              <span className="text-[10px] font-medium text-purple-400 uppercase tracking-wider">
+              <span className="text-xs font-medium text-purple-400 uppercase tracking-wider">
                 Chat
               </span>
               {isListening && (
-                <span className="ml-auto flex items-center gap-1 text-[10px] text-red-400">
+                <span className="ml-auto flex items-center gap-1 text-xs text-red-400">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
@@ -404,7 +404,7 @@ export function CoworkModal({
                       {msg.role === "assistant" && i > 0 && (
                         <button
                           onClick={() => speakText(msg.content, i)}
-                          className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-purple-400 transition-colors"
+                          className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-purple-400 transition-colors"
                         >
                           {speakingIdx === i ? (
                             <>
@@ -539,11 +539,11 @@ export function CoworkModal({
                   <line x1="16" x2="8" y1="13" y2="13" />
                   <line x1="16" x2="8" y1="17" y2="17" />
                 </svg>
-                <span className="text-[10px] font-medium text-purple-400 uppercase tracking-wider">
+                <span className="text-xs font-medium text-purple-400 uppercase tracking-wider">
                   Script
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {script.length} chars
               </span>
             </div>
