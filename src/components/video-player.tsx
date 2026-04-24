@@ -99,11 +99,11 @@ export function VideoPlayer({
                 transition={{ duration: 0.5, ease: "easeOut" }}
               />
             </div>
-            <p className="text-[10px] text-muted-foreground text-right tabular-nums">
+            <p className="text-xs text-muted-foreground text-right tabular-nums">
               {Math.round(videoProgress)}%
             </p>
           </div>
-          <p className="text-[10px] text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Your video is rendering — typically 3–5 minutes, or up to 25 min for a new photo avatar
           </p>
         </motion.div>
@@ -161,7 +161,7 @@ export function VideoPlayer({
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
             <div className="space-y-1">
               <p className="text-xs text-amber-400">{videoError}</p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 If this keeps happening, contact support or try again in a moment.
               </p>
             </div>

@@ -143,7 +143,7 @@ export function VoiceUploadZone({ onFile, uploading }: VoiceUploadZoneProps) {
               <p className="text-sm font-medium text-green-300 max-w-[200px] truncate">
                 {selectedFile.name}
               </p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
               </p>
             </motion.div>
@@ -159,7 +159,7 @@ export function VoiceUploadZone({ onFile, uploading }: VoiceUploadZoneProps) {
               <p className="text-sm font-medium text-foreground/70">
                 Drop a file or <span className="text-purple-400">click to browse</span>
               </p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 MP3, WAV, M4A, OGG or WebM · max 25 MB · 15–60 seconds recommended
               </p>
             </motion.div>
@@ -176,7 +176,7 @@ export function VoiceUploadZone({ onFile, uploading }: VoiceUploadZoneProps) {
             exit={{ opacity: 0, height: 0 }}
             type="button"
             onClick={(e) => { e.stopPropagation(); handleClear(); }}
-            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-400 transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
           >
             <X className="h-2.5 w-2.5" />
             Remove file

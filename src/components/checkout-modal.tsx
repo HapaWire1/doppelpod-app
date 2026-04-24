@@ -91,7 +91,7 @@ export function CheckoutModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Upgrade to {tier}
-            <span className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 px-2 py-0.5 text-[10px] font-medium text-white">
+            <span className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 px-2 py-0.5 text-xs font-medium text-white">
               {price}{billingPeriod === "yearly" ? "/yr" : "/mo"}
             </span>
           </DialogTitle>
@@ -140,7 +140,7 @@ export function CheckoutModal({
             {/* Feature list */}
             <div className="space-y-3">
               <div className="rounded-lg border border-purple-500/20 bg-purple-950/20 p-3">
-                <p className="mb-2 text-[10px] font-medium text-purple-400 uppercase tracking-wider">
+                <p className="mb-2 text-xs font-medium text-purple-400 uppercase tracking-wider">
                   What you get
                 </p>
                 <ul className="space-y-1.5">
@@ -167,7 +167,7 @@ export function CheckoutModal({
               <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-4 py-3">
                 <div>
                   <p className="text-sm font-medium">{tier} Plan</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {billingPeriod === "yearly" ? "Billed yearly, cancel anytime" : "Billed monthly, cancel anytime"}
                   </p>
                 </div>
@@ -178,7 +178,7 @@ export function CheckoutModal({
               </div>
 
               {/* Stripe badge */}
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect width="20" height="14" x="2" y="5" rx="2" />
                   <line x1="2" x2="22" y1="10" y2="10" />
