@@ -82,13 +82,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      // INITIAL_SESSION is handled by getUser() above — skip to avoid double work.
+      if (_event === "INITIAL_SESSION") return;
+
       const newUser = session?.user ?? null;
       setUser(newUser);
       if (newUser) {
-        // Post-initial auth changes (sign-in, token refresh): fetch profile
-        // immediately, no delay. Profile trigger runs synchronously before
-        // Supabase fires this event, so the row exists by the time we query.
-        fetchProfile();
+        // Raise loading so effectiveTier shows "trial" (not "expired") while
+        // profile fetches. fetchProfile() never rejects (internal try/catch).
+        setLoading(true);
+        fetchProfile().then(() => setLoading(false));
       } else {
         // Sign-out: clear profile and unblock any loading state.
         setProfile(null);
