@@ -79,7 +79,7 @@ export function DemoTypewriter({ onSignup }: { onSignup: () => void }) {
       >
         {/* Input section */}
         <div className="p-4 sm:p-5 border-b border-purple-500/10">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             You wrote
           </p>
           <p className="min-h-[2.5rem] text-sm text-muted-foreground leading-relaxed">
@@ -92,7 +92,7 @@ export function DemoTypewriter({ onSignup }: { onSignup: () => void }) {
 
         {/* Output section */}
         <div className="p-4 sm:p-5">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-purple-400">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-purple-400">
             Your AI twin wrote
           </p>
           <AnimatePresence>

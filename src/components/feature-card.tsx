@@ -34,7 +34,7 @@ export function FeatureCard({ icon, title, description, back, comingSoon }: Feat
           style={{ gridArea: "1/1", backfaceVisibility: "hidden" }}
         >
           {comingSoon && (
-            <div className="absolute top-2.5 right-3 rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-400 select-none">
+            <div className="absolute top-2.5 right-3 rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-purple-400 select-none">
               Coming Soon
             </div>
           )}

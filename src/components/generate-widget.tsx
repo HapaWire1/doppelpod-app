@@ -536,11 +536,11 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
               className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20"
               onClick={onCoworkOpen}
             >
-              <span className="mr-2 flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-purple-500 to-pink-500 text-[10px] font-bold text-white">
+              <span className="mr-2 flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-purple-500 to-pink-500 text-xs font-bold text-white">
                 C
               </span>
               Claude Cowork — Refine with AI
-              <span className="ml-auto rounded-full bg-purple-500/10 px-1.5 py-0.5 text-[9px] font-medium text-purple-400 border border-purple-500/20">
+              <span className="ml-auto rounded-full bg-purple-500/10 px-1.5 py-0.5 text-[11px] font-medium text-purple-400 border border-purple-500/20">
                 ELITE
               </span>
             </Button>
@@ -564,7 +564,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                         <button
                           key={p.key}
                           onClick={() => handlePresetChange(p.key)}
-                          className={`flex flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all duration-150 hover:scale-105 ${
+                          className={`flex flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all duration-150 hover:scale-105 ${
                             voicePreset === p.key
                               ? "border-purple-500 bg-purple-500/15 text-purple-300 shadow-sm shadow-purple-500/20"
                               : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
@@ -593,7 +593,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                       max={100}
                       step={5}
                     />
-                    <div className="flex justify-between text-[10px] text-muted-foreground/60">
+                    <div className="flex justify-between text-xs text-muted-foreground/60">
                       <span>Creative</span>
                       <span>Clone-like</span>
                     </div>
@@ -643,7 +643,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                 >
                   <Waveform isPlaying={isPlaying} progress={audioProgress} className="rounded" />
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] tabular-nums text-muted-foreground min-w-[28px]">
+                    <span className="text-xs tabular-nums text-muted-foreground min-w-[28px]">
                       {formatTime(audioProgress * audioDuration)}
                     </span>
                     <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-purple-950/50">
@@ -652,7 +652,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                         style={{ width: `${audioProgress * 100}%` }}
                       />
                     </div>
-                    <span className="text-[10px] tabular-nums text-muted-foreground min-w-[28px] text-right">
+                    <span className="text-xs tabular-nums text-muted-foreground min-w-[28px] text-right">
                       {formatTime(audioDuration)}
                     </span>
                   </div>
@@ -705,7 +705,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                 TALKING VIDEO AVATAR
                 <UsageBadge feature="video" />
                 {videoSectionHighlight && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/40 px-1.5 py-0.5 text-[10px] font-semibold text-purple-300 animate-pulse">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/40 px-1.5 py-0.5 text-xs font-semibold text-purple-300 animate-pulse">
                     ↓ Try it
                   </span>
                 )}
@@ -722,7 +722,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                         : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
                     }`}
                   >
-                    <span className="block text-[10px] mb-0.5 opacity-60">SAVED</span>
+                    <span className="block text-xs mb-0.5 opacity-60">SAVED</span>
                     Use my avatar
                   </button>
                   <button
@@ -733,7 +733,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                         : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
                     }`}
                   >
-                    <span className="block text-[10px] mb-0.5 opacity-60">NEW / DEFAULT</span>
+                    <span className="block text-xs mb-0.5 opacity-60">NEW / DEFAULT</span>
                     Upload new photo / Use default
                   </button>
                 </div>
@@ -745,7 +745,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                   <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 px-3 py-2.5 space-y-1">
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-medium text-amber-400">Photo requirements</p>
-                      <span className="text-[10px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">⏱ 15–60 min to process</span>
+                      <span className="text-xs font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">⏱ 15–60 min to process</span>
                     </div>
                     <ul className="text-[11px] text-foreground/65 space-y-0.5 list-none">
                       <li>✓ Real photograph of a single person (portrait, headshot, or full-body)</li>
@@ -755,7 +755,7 @@ export function GenerateWidget({ onCoworkOpen, placeholder }: GenerateWidgetProp
                       <li>✗ No group shots, pets, objects, or landscapes</li>
                       <li>✗ No heavy filters, masks, or obstructions</li>
                     </ul>
-                    <p className="text-[10px] text-muted-foreground/60 pt-0.5">
+                    <p className="text-xs text-muted-foreground/60 pt-0.5">
                       Must be a real photo with a detectable human face. Non-portrait or non-photo images will fail during processing. Once created, your avatar is saved for instant reuse.
                     </p>
                   </div>

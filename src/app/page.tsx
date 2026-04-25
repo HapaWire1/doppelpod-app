@@ -33,11 +33,11 @@ const features = [
     back: (
       <div className="space-y-3">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">You wrote</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">You wrote</p>
           <p className="text-muted-foreground">&ldquo;just posted a new vid lmk what u think&rdquo;</p>
         </div>
         <div className="border-t border-purple-500/20 pt-3">
-          <p className="text-[10px] uppercase tracking-wider text-purple-400 mb-1">Your twin wrote</p>
+          <p className="text-xs uppercase tracking-wider text-purple-400 mb-1">Your twin wrote</p>
           <p>&ldquo;New video just dropped. This one&apos;s different — watch it and let me know.&rdquo;</p>
         </div>
       </div>
@@ -51,7 +51,7 @@ const features = [
     comingSoon: true,
     back: (
       <div className="space-y-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">While you were away</p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">While you were away</p>
         <div className="space-y-2">
           <p className="flex items-center gap-2"><span className="text-green-400">✓</span> 3 posts published</p>
           <p className="flex items-center gap-2"><span className="text-green-400">✓</span> 8 replies sent</p>
@@ -68,7 +68,7 @@ const features = [
     comingSoon: true,
     back: (
       <div className="space-y-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Post score: <span className="text-green-400 font-bold text-sm">84/100</span></p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Post score: <span className="text-green-400 font-bold text-sm">84/100</span></p>
         <div className="space-y-2">
           <p className="flex items-center gap-2"><span className="text-green-400">✓</span> Strong hook</p>
           <p className="flex items-center gap-2"><span className="text-green-400">✓</span> Clear CTA</p>
@@ -254,7 +254,7 @@ export default function Home() {
               {["bg-purple-500", "bg-pink-500", "bg-indigo-500", "bg-fuchsia-500", "bg-violet-500"].map((bg, i) => (
                 <div
                   key={i}
-                  className={`h-8 w-8 rounded-full border-2 border-background ${bg} flex items-center justify-center text-[10px] font-bold text-white`}
+                  className={`h-8 w-8 rounded-full border-2 border-background ${bg} flex items-center justify-center text-xs font-bold text-white`}
                 >
                   {String.fromCharCode(65 + i)}
                 </div>

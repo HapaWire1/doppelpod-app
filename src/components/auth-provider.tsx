@@ -70,8 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile]);
 
   useEffect(() => {
-    // getUser() is the sole owner of initial loading state.
-    // loading stays true until the profile is in hand — prevents "expired" flash.
+    // getUser() is the source of truth for initial load — we await profile
+    // fetch before clearing loading so components never see the (profile=null,
+    // loading=false) window that causes an "expired" flash.
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user);
       if (user) await fetchProfile();
@@ -80,21 +81,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // INITIAL_SESSION is already handled by getUser() above — skip to avoid double work.
-      if (event === "INITIAL_SESSION") return;
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      // INITIAL_SESSION is handled by getUser() above — skip to avoid double work.
+      if (_event === "INITIAL_SESSION") return;
 
       const newUser = session?.user ?? null;
       setUser(newUser);
-
       if (newUser) {
-        // Raise loading so effectiveTier shows "trial" (not "expired") while profile fetches.
+        // Raise loading so effectiveTier shows "trial" (not "expired") while
+        // profile fetches. fetchProfile() never rejects (internal try/catch).
         setLoading(true);
-        await fetchProfile();
-        setLoading(false);
+        fetchProfile().then(() => setLoading(false));
       } else {
+        // Sign-out: clear profile and unblock any loading state.
         setProfile(null);
         setUsage(null);
+        setLoading(false);
       }
     });
 
@@ -171,9 +173,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
+    // Raise loading flag immediately so components render nothing sensitive
+    // during the brief window between signOut() and the page redirect.
+    setLoading(true);
     await supabase.auth.signOut();
-    setProfile(null);
-    setUsage(null);
     window.location.href = "/";
   }
 
