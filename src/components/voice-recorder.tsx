@@ -126,7 +126,12 @@ export function VoiceRecorder({ onUpload, uploading }: VoiceRecorderProps) {
     // Strip codec params (e.g. "audio/webm;codecs=opus" -> "audio/webm") so the
     // server's MIME allowlist does an exact match without codec qualifiers.
     const rawMime = blobRef.current.type || "audio/webm";
-    const baseMime = rawMime.split(";")[0].trim().toLowerCase();
+    // Strip codec params and normalize video/webm → audio/webm.
+    // Some browsers (Chromium on certain platforms) report WebM as video/webm
+    // even for audio-only recordings. The upload route rejects video/webm, so
+    // remap it — the content is identical, only the label differs.
+    const strippedMime = rawMime.split(";")[0].trim().toLowerCase();
+    const baseMime = strippedMime === "video/webm" ? "audio/webm" : strippedMime;
     // Map MIME to file extension; fall back to webm for unknown types
     const ext =
       baseMime.includes("mp4") || baseMime.includes("m4a") || baseMime.includes("aac")

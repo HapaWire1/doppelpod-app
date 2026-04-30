@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       "audio/aac",       // Safari MediaRecorder may report this
       "audio/x-aac",
       "video/mp4",       // QuickTime .m4a sometimes reports as video/mp4
+      "video/webm",      // Chromium sometimes reports audio-only WebM as video/webm
     ];
     if (!allowedTypes.includes(baseMimeType)) {
       console.warn("[voice-upload] MIME type rejected:", {
