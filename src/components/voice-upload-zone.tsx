@@ -18,6 +18,7 @@ const ACCEPTED_TYPES = [
   "audio/m4a",
   "audio/x-m4a",
   "video/mp4",     // QuickTime .m4a reports as video/mp4
+  "video/webm",    // Chromium sometimes reports audio-only WebM as video/webm
   "audio/ogg",
   "audio/webm",
   "audio/aac",     // Safari MediaRecorder
