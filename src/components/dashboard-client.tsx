@@ -1037,7 +1037,7 @@ export function DashboardClient({
         price={upgradeBillingPeriod === "yearly" ? tierInfo[checkoutTier].yearlyPrice : tierInfo[checkoutTier].price}
         billingPeriod={upgradeBillingPeriod}
         features={tierInfo[checkoutTier].features}
-        onSuccess={(tier) => setActivePlan(tier)}
+        onSuccess={(tier) => setActivePlan(tier as import("@/lib/tiers").TierName)}
       />
 
       <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
