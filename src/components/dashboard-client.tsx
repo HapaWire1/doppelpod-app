@@ -34,7 +34,7 @@ interface VideoJob {
 
 interface DashboardClientProps {
   user: { id: string; email: string };
-  profile: { tier: string; voice_id: string | null; heygen_avatar_id?: string | null; comms_email?: string | null; trial_end?: string | null; paid_tier?: string | null };
+  profile: { tier: string; voice_id: string | null; elevenlabs_voice_id?: string | null; fish_voice_id?: string | null; heygen_avatar_id?: string | null; comms_email?: string | null; trial_end?: string | null; paid_tier?: string | null };
   initialGenerations: Generation[];
   initialVideoJobs: VideoJob[];
 }
@@ -354,8 +354,13 @@ export function DashboardClient({
   }
 
   const [voiceUploading, setVoiceUploading] = useState(false);
+  const hasClonedVoice = !!(profile.elevenlabs_voice_id || profile.fish_voice_id);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(
-    profile.voice_id ? "Voice sample uploaded" : null
+    hasClonedVoice
+      ? "Voice cloned and ready!"
+      : profile.voice_id
+      ? "Sample uploaded — re-upload to activate cloning."
+      : null
   );
   const [voiceTab, setVoiceTab] = useState<"upload" | "record">("upload");
 
@@ -370,15 +375,27 @@ export function DashboardClient({
     setVoiceUploading(true);
     setVoiceStatus(null);
     try {
+      // Step 1: Store the raw audio file in Supabase Storage
       const formData = new FormData();
       formData.append("audio", file);
-      const res = await fetch("/api/voice/upload", { method: "POST", body: formData });
-      if (res.ok) {
-        setVoiceStatus("Voice sample uploaded successfully!");
-      } else {
-        const data = await res.json();
+      const uploadRes = await fetch("/api/voice/upload", { method: "POST", body: formData });
+      if (!uploadRes.ok) {
+        const data = await uploadRes.json();
         setVoiceStatus(`Error: ${data.error || "Upload failed"}`);
+        return;
       }
+
+      // Step 2: Clone the voice via ElevenLabs so it's ready for generation
+      setVoiceStatus("Cloning voice…");
+      const cloneRes = await fetch("/api/voice/clone", { method: "POST" });
+      if (!cloneRes.ok) {
+        const data = await cloneRes.json();
+        // Upload succeeded but clone failed — sample is saved, user can retry
+        setVoiceStatus(`Error: ${data.error || "Voice cloning failed — please try again."}`);
+        return;
+      }
+
+      setVoiceStatus("Voice cloned and ready!");
     } catch {
       setVoiceStatus("Error: Failed to upload voice sample.");
     } finally {
