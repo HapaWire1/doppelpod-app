@@ -262,7 +262,8 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
   }
 
   async function handleGenerateVideo() {
-    if (!output) return;
+    const script = output || input.trim();
+    if (!script) return;
     setVideoLoading(true);
     setVideoProgress(3);
     setVideoUrl(null);
@@ -276,7 +277,7 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
 
     try {
       const formData = new FormData();
-      formData.append("script", output);
+      formData.append("script", script);
       if (useSavedAvatar && savedAvatarId) {
         formData.append("savedAvatarId", savedAvatarId);
       } else if (usingNewPhoto && avatarFile) {
@@ -701,109 +702,110 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
             </div>
           </FeatureGate>
 
-          {/* Video Avatar Section */}
-          <FeatureGate feature="video">
-            <div className={`border-t pt-4 space-y-4 transition-colors duration-700 ${videoSectionHighlight ? "border-purple-400/60" : "border-purple-500/20"}`}>
-              <p className="text-xs font-medium text-purple-400 flex items-center gap-2">
-                TALKING VIDEO AVATAR
-                <UsageBadge feature="video" />
-                {videoSectionHighlight && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/40 px-1.5 py-0.5 text-xs font-semibold text-purple-300 animate-pulse">
-                    ↓ Try it
-                  </span>
-                )}
-              </p>
-
-              {/* Saved avatar toggle */}
-              {savedAvatarId && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setUseSavedAvatar(true)}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                      useSavedAvatar
-                        ? "border-purple-500 bg-purple-500/15 text-purple-300"
-                        : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
-                    }`}
-                  >
-                    <span className="block text-xs mb-0.5 opacity-60">SAVED</span>
-                    Use my avatar
-                  </button>
-                  <button
-                    onClick={() => setUseSavedAvatar(false)}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                      !useSavedAvatar
-                        ? "border-purple-500 bg-purple-500/15 text-purple-300"
-                        : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
-                    }`}
-                  >
-                    <span className="block text-xs mb-0.5 opacity-60">NEW / DEFAULT</span>
-                    Upload new photo / Use default
-                  </button>
-                </div>
-              )}
-
-              {/* Photo upload — only shown when not using saved avatar */}
-              {!useSavedAvatar && (
-                <>
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 px-3 py-2.5 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-medium text-amber-400">Photo requirements</p>
-                      <span className="text-xs font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">⏱ 15–60 min to process</span>
-                    </div>
-                    <ul className="text-[11px] text-foreground/65 space-y-0.5 list-none">
-                      <li>✓ Real photograph of a single person (portrait, headshot, or full-body)</li>
-                      <li>✓ Face clearly visible, well-lit, looking toward camera</li>
-                      <li>✓ PNG, JPEG, or WebP · max 10 MB</li>
-                      <li>✗ No illustrations, cartoons, AI-generated art, or avatars</li>
-                      <li>✗ No group shots, pets, objects, or landscapes</li>
-                      <li>✗ No heavy filters, masks, or obstructions</li>
-                    </ul>
-                    <p className="text-xs text-muted-foreground/60 pt-0.5">
-                      Must be a real photo with a detectable human face. Non-portrait or non-photo images will fail during processing. Once created, your avatar is saved for instant reuse.
-                    </p>
-                  </div>
-                  <AvatarUpload
-                    file={avatarFile}
-                    preview={avatarPreview}
-                    onFileChange={(file, preview) => {
-                      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-                      setAvatarFile(file);
-                      setAvatarPreview(preview);
-                    }}
-                    disabled={videoLoading}
-                  />
-                </>
-              )}
-              {!useSavedAvatar && avatarFile && !videoLoading && (
-                <p className="text-[11px] text-amber-400/80">
-                  ⏱ Custom photo videos take 15–25 min to generate. We&apos;ll email you when it&apos;s ready.
-                </p>
-              )}
-              {!useSavedAvatar && avatarFile && videoLoading && isPhotoJob && (
-                <p className="text-[11px] text-purple-400/80">
-                  Your video is being processed — we&apos;ll email you when it&apos;s ready. You can close this page.
-                </p>
-              )}
-              <VideoPlayer
-                videoUrl={videoUrl}
-                videoLoading={videoLoading}
-                videoProgress={videoProgress}
-                videoError={videoError}
-                jobStatus={jobStatus}
-                posterUrl={avatarPreview || undefined}
-                onGenerate={handleGenerateVideo}
-                onRegenerate={() => {
-                  setVideoUrl(null);
-                  setVideoProgress(0);
-                  setVideoError("");
-                  setJobStatus("");
-                }}
-                disabled={!output}
-              />
-            </div>
-          </FeatureGate>
         </motion.div>
       )}
+
+      {/* Video Avatar Section — always visible, no text generation required */}
+      <FeatureGate feature="video">
+        <div className={`rounded-lg border bg-card p-4 space-y-4 transition-colors duration-700 ${videoSectionHighlight ? "border-purple-400/60" : "border-border/50"}`}>
+          <p className="text-xs font-medium text-purple-400 flex items-center gap-2">
+            TALKING VIDEO AVATAR
+            <UsageBadge feature="video" />
+            {videoSectionHighlight && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/40 px-1.5 py-0.5 text-xs font-semibold text-purple-300 animate-pulse">
+                ↓ Try it
+              </span>
+            )}
+          </p>
+
+          {/* Saved avatar toggle */}
+          {savedAvatarId && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setUseSavedAvatar(true)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                  useSavedAvatar
+                    ? "border-purple-500 bg-purple-500/15 text-purple-300"
+                    : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
+                }`}
+              >
+                <span className="block text-xs mb-0.5 opacity-60">SAVED</span>
+                Use my avatar
+              </button>
+              <button
+                onClick={() => setUseSavedAvatar(false)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                  !useSavedAvatar
+                    ? "border-purple-500 bg-purple-500/15 text-purple-300"
+                    : "border-border/50 text-muted-foreground hover:border-purple-500/30 hover:text-purple-400"
+                }`}
+              >
+                <span className="block text-xs mb-0.5 opacity-60">NEW / DEFAULT</span>
+                Upload new photo / Use default
+              </button>
+            </div>
+          )}
+
+          {/* Photo upload — only shown when not using saved avatar */}
+          {!useSavedAvatar && (
+            <>
+              <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 px-3 py-2.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-medium text-amber-400">Photo requirements</p>
+                  <span className="text-xs font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">⏱ 15–60 min to process</span>
+                </div>
+                <ul className="text-[11px] text-foreground/65 space-y-0.5 list-none">
+                  <li>✓ Real photograph of a single person (portrait, headshot, or full-body)</li>
+                  <li>✓ Face clearly visible, well-lit, looking toward camera</li>
+                  <li>✓ PNG, JPEG, or WebP · max 10 MB</li>
+                  <li>✗ No illustrations, cartoons, AI-generated art, or avatars</li>
+                  <li>✗ No group shots, pets, objects, or landscapes</li>
+                  <li>✗ No heavy filters, masks, or obstructions</li>
+                </ul>
+                <p className="text-xs text-muted-foreground/60 pt-0.5">
+                  Must be a real photo with a detectable human face. Non-portrait or non-photo images will fail during processing. Once created, your avatar is saved for instant reuse.
+                </p>
+              </div>
+              <AvatarUpload
+                file={avatarFile}
+                preview={avatarPreview}
+                onFileChange={(file, preview) => {
+                  if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                  setAvatarFile(file);
+                  setAvatarPreview(preview);
+                }}
+                disabled={videoLoading}
+              />
+            </>
+          )}
+          {!useSavedAvatar && avatarFile && !videoLoading && (
+            <p className="text-[11px] text-amber-400/80">
+              ⏱ Custom photo videos take 15–25 min to generate. We&apos;ll email you when it&apos;s ready.
+            </p>
+          )}
+          {!useSavedAvatar && avatarFile && videoLoading && isPhotoJob && (
+            <p className="text-[11px] text-purple-400/80">
+              Your video is being processed — we&apos;ll email you when it&apos;s ready. You can close this page.
+            </p>
+          )}
+          <VideoPlayer
+            videoUrl={videoUrl}
+            videoLoading={videoLoading}
+            videoProgress={videoProgress}
+            videoError={videoError}
+            jobStatus={jobStatus}
+            posterUrl={avatarPreview || undefined}
+            onGenerate={handleGenerateVideo}
+            onRegenerate={() => {
+              setVideoUrl(null);
+              setVideoProgress(0);
+              setVideoError("");
+              setJobStatus("");
+            }}
+            disabled={!output && !input.trim()}
+          />
+        </div>
+      </FeatureGate>
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
