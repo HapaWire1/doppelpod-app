@@ -161,6 +161,7 @@ export function DashboardClient({
   const [billingLoading, setBillingLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
@@ -408,37 +409,104 @@ export function DashboardClient({
       {/* Nav */}
       <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <Link
-            href="/"
-            className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold text-transparent"
-          >
-            DoppelPod
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="lg:hidden flex flex-col justify-center gap-1.5 p-1 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Open navigation"
+            >
+              <span className="block h-0.5 w-5 bg-current" />
+              <span className="block h-0.5 w-5 bg-current" />
+              <span className="block h-0.5 w-5 bg-current" />
+            </button>
+            <Link
+              href="/"
+              className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold text-transparent"
+            >
+              DoppelPod
+            </Link>
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {user.email}
             </span>
-            <Button
-              size="sm"
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700 transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30"
-              onClick={() => setFeedbackOpen(true)}
-            >
-              <svg className="h-4 w-4 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              Feedback
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
-              onClick={() => signOut()}
-            >
-              Logout
-            </Button>
           </div>
         </div>
       </nav>
+
+      {/* Nav links — desktop sidebar + mobile drawer */}
+      {(() => {
+        const navLinks = [
+          { label: "Account",          href: "#account" },
+          { label: "Generate",         href: "#generate" },
+          { label: "Voice Clone",      href: "#voice-clone" },
+          { label: "Video Jobs",       href: "#video-jobs" },
+          { label: "Past Generations", href: "#past-generations" },
+        ];
+        return (
+          <>
+            {/* Desktop sidebar — fixed left, lg+ only */}
+            <nav className="hidden lg:flex fixed left-6 top-1/2 -translate-y-1/2 z-40 flex-col gap-1">
+              {navLinks.map(({ label, href }) => (
+                <a
+                  key={href}
+                  href={href}
+                  className="text-xs text-muted-foreground/60 hover:text-purple-400 transition-colors py-0.5 whitespace-nowrap"
+                >
+                  {label}
+                </a>
+              ))}
+              <button
+                onClick={() => signOut()}
+                className="text-xs text-red-400/70 hover:text-red-300 transition-colors text-left pt-2 mt-1 border-t border-border/20"
+              >
+                Logout
+              </button>
+            </nav>
+
+            {/* Mobile drawer */}
+            {mobileNavOpen && (
+              <>
+                <div
+                  className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+                  onClick={() => setMobileNavOpen(false)}
+                />
+                <div className="lg:hidden fixed left-0 top-0 z-50 h-full w-56 bg-background border-r border-border/50 flex flex-col p-6 gap-1">
+                  <div className="flex items-center justify-between mb-6">
+                    <span className="text-sm font-semibold text-foreground">Navigation</span>
+                    <button
+                      onClick={() => setMobileNavOpen(false)}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Close navigation"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                  {navLinks.map(({ label, href }) => (
+                    <a
+                      key={href}
+                      href={href}
+                      onClick={() => setMobileNavOpen(false)}
+                      className="text-sm text-muted-foreground hover:text-purple-400 transition-colors py-1.5 border-b border-border/20"
+                    >
+                      {label}
+                    </a>
+                  ))}
+                  <button
+                    onClick={() => { setMobileNavOpen(false); signOut(); }}
+                    className="text-sm text-red-400 hover:text-red-300 transition-colors text-left pt-1.5 mt-1 border-t border-border/20"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        );
+      })()}
 
       <main className="mx-auto max-w-4xl px-4 pt-24 pb-16 space-y-8">
         {verifyMessage && (
@@ -469,10 +537,23 @@ export function DashboardClient({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <h1 className="text-2xl font-bold sm:text-3xl">Dashboard</h1>
-          <p className="mt-1 text-sm text-foreground/70">
-            Manage your AI twin, view past generations, and upgrade your plan.
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold sm:text-3xl">Dashboard</h1>
+              <p className="mt-1 text-sm text-foreground/70">
+                Manage your AI twin, view past generations, and upgrade your plan.
+              </p>
+            </div>
+            <Button
+              className="shrink-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700 transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30 px-5 py-2.5 text-sm font-semibold h-auto"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Give Feedback
+            </Button>
+          </div>
         </motion.div>
 
         {/* Account Info */}
@@ -480,6 +561,7 @@ export function DashboardClient({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
+          id="account"
         >
           <Card className="border-border/50 bg-card/50">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -780,6 +862,7 @@ export function DashboardClient({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.15 }}
           className="relative"
+          id="generate"
         >
           {displayTier === "expired" && <ExpiredOverlay onUpgrade={() => setUpgradeModalOpen(true)} />}
           <Card className={`border-border/50 bg-card/50 ${displayTier === "expired" ? "pointer-events-none" : ""}`}>
@@ -798,6 +881,7 @@ export function DashboardClient({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
           className="relative"
+          id="voice-clone"
         >
           {displayTier === "expired" && <ExpiredOverlay onUpgrade={() => setUpgradeModalOpen(true)} />}
           <Card className={`border-border/50 bg-card/50 ${displayTier === "expired" ? "pointer-events-none" : ""}`}>
@@ -865,6 +949,7 @@ export function DashboardClient({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.25 }}
+            id="video-jobs"
           >
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
@@ -939,6 +1024,7 @@ export function DashboardClient({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
           className="relative"
+          id="past-generations"
         >
           {displayTier === "expired" && <ExpiredOverlay onUpgrade={() => setUpgradeModalOpen(true)} />}
           <Card className={`border-border/50 bg-card/50 ${displayTier === "expired" ? "pointer-events-none" : ""}`}>
