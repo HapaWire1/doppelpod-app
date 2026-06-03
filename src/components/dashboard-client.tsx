@@ -407,35 +407,6 @@ export function DashboardClient({
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
-      <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            {/* Hamburger — mobile only */}
-            <button
-              onClick={() => setMobileNavOpen(true)}
-              className="lg:hidden flex flex-col justify-center gap-1.5 p-1 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Open navigation"
-            >
-              <span className="block h-0.5 w-5 bg-current" />
-              <span className="block h-0.5 w-5 bg-current" />
-              <span className="block h-0.5 w-5 bg-current" />
-            </button>
-            <Link
-              href="/"
-              className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold text-transparent"
-            >
-              DoppelPod
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {user.email}
-            </span>
-          </div>
-        </div>
-      </nav>
-
-      {/* Nav links — desktop sidebar + mobile drawer */}
       {(() => {
         const navLinks = [
           { label: "Account",          href: "#account" },
@@ -446,23 +417,54 @@ export function DashboardClient({
         ];
         return (
           <>
-            {/* Desktop sidebar — fixed left, lg+ only */}
-            <nav className="hidden lg:flex fixed left-6 top-1/2 -translate-y-1/2 z-40 flex-col gap-1">
-              {navLinks.map(({ label, href }) => (
-                <a
-                  key={href}
-                  href={href}
-                  className="text-xs text-muted-foreground/60 hover:text-purple-400 transition-colors py-0.5 whitespace-nowrap"
-                >
-                  {label}
-                </a>
-              ))}
-              <button
-                onClick={() => signOut()}
-                className="text-xs text-red-400/70 hover:text-red-300 transition-colors text-left pt-2 mt-1 border-t border-border/20"
-              >
-                Logout
-              </button>
+            {/* Top nav bar */}
+            <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
+              <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+                <div className="flex items-center gap-3">
+                  {/* Hamburger — mobile only */}
+                  <button
+                    onClick={() => setMobileNavOpen(true)}
+                    className="lg:hidden flex flex-col justify-center gap-1.5 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Open navigation"
+                  >
+                    <span className="block h-0.5 w-5 bg-current" />
+                    <span className="block h-0.5 w-5 bg-current" />
+                    <span className="block h-0.5 w-5 bg-current" />
+                  </button>
+                  <Link
+                    href="/"
+                    className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold text-transparent"
+                  >
+                    DoppelPod
+                  </Link>
+                </div>
+
+                {/* Nav links — centered, desktop only */}
+                <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-6">
+                  <span className="text-sm text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap">Navigation:</span>
+                  {navLinks.map(({ label, href }) => (
+                    <a
+                      key={href}
+                      href={href}
+                      className="text-sm text-pink-500 hover:text-pink-400 transition-colors whitespace-nowrap"
+                    >
+                      {label}
+                    </a>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground hidden sm:inline">
+                    {user.email}
+                  </span>
+                  <button
+                    onClick={() => signOut()}
+                    className="hidden lg:inline text-xs text-red-400/70 hover:text-red-300 transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
             </nav>
 
             {/* Mobile drawer */}
@@ -497,7 +499,7 @@ export function DashboardClient({
                   ))}
                   <button
                     onClick={() => { setMobileNavOpen(false); signOut(); }}
-                    className="text-sm text-red-400 hover:text-red-300 transition-colors text-left pt-1.5 mt-1 border-t border-border/20"
+                    className="text-sm text-red-400 hover:text-red-300 transition-colors text-left pt-1.5 mt-1 border-t border-border/20 cursor-pointer"
                   >
                     Logout
                   </button>
