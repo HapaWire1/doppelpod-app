@@ -749,6 +749,9 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
           {/* Photo upload — only shown when not using saved avatar */}
           {!useSavedAvatar && (
             <>
+              <p className="text-xs text-purple-400/70">
+                ✦ For the most realistic lip-sync, use a photo where your teeth are naturally visible — even a relaxed smile works great.
+              </p>
               <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 px-3 py-2.5 space-y-1">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-medium text-amber-400">Photo requirements</p>
