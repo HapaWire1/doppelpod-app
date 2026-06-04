@@ -765,6 +765,9 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
                 <p className="text-xs text-muted-foreground/60 pt-0.5">
                   Must be a real photo with a detectable human face. Non-portrait or non-photo images will fail during processing. Once created, your avatar is saved for instant reuse.
                 </p>
+                <p className="text-xs text-purple-400/70 pt-0.5">
+                  ✦ For the most realistic lip-sync, use a photo where your teeth are naturally visible — even a relaxed smile works great.
+                </p>
               </div>
               <AvatarUpload
                 file={avatarFile}
