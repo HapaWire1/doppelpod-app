@@ -19,12 +19,12 @@ export const metadata: Metadata = {
   title: "DoppelPod — Your AI Twin Runs Social 24/7",
   description:
     "Clone your voice, post, engage, grow — autopilot. Let your AI twin build your brand while you sleep.",
-  metadataBase: new URL("https://doppelpod.com"),
+  metadataBase: new URL("https://www.doppelpod.io"),
   openGraph: {
     title: "DoppelPod — Your AI Twin Runs Social 24/7",
     description:
       "Clone your voice, post, engage, grow — autopilot. Let your AI twin build your brand while you sleep.",
-    url: "https://doppelpod.com",
+    url: "https://www.doppelpod.io",
     siteName: "DoppelPod",
     images: [
       {
