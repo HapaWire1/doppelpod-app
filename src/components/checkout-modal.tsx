@@ -52,7 +52,7 @@ export function CheckoutModal({
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier, priceId: priceIds[tier.toLowerCase()] }),
+        body: JSON.stringify({ tier: tier.toLowerCase(), priceId: priceIds[tier.toLowerCase()] }),
       });
 
       const data = await res.json();
