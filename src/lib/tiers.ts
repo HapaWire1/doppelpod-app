@@ -74,16 +74,13 @@ export function getEffectiveTier(profile: {
   trial_end: string | null;
 }): TierName {
   if (profile.tier === "trial") {
-    // Elite paid subscription always takes precedence — show as elite immediately
-    if (profile.paid_tier?.toLowerCase() === "elite") {
-      return "elite";
-    }
-    if (profile.trial_end && new Date(profile.trial_end) > new Date()) {
-      return "trial"; // active trial = Elite access; Pro subscribers stay on trial during trial period
-    }
-    // Trial expired — fall to paid tier if they subscribed, otherwise expired
+// Any paid subscription takes precedence — paying customers should
+    // never see trial messaging or the trial countdown.
     if (profile.paid_tier) {
       return profile.paid_tier.toLowerCase() as TierName;
+    }
+    if (profile.trial_end && new Date(profile.trial_end) > new Date()) {
+      return "trial"; // active trial = Elite access
     }
     return "expired";
   }
