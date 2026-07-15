@@ -144,5 +144,26 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // --- customer.subscription.deleted (cancellation or final payment failure) ---
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+
+    if (customerId) {
+      const { data: downgraded, error } = await supabase
+        .from("profiles")
+        .update({ paid_tier: null })
+        .eq("stripe_customer_id", customerId)
+        .select("email")
+        .single();
+
+      if (error) {
+        console.error("[stripe-webhook] Downgrade failed for customer", customerId, error.message);
+      } else {
+        console.log(`[stripe-webhook] Subscription ended — cleared paid_tier for ${downgraded?.email}`);
+      }
+    }
+  }
+
   return NextResponse.json({ received: true });
 }
