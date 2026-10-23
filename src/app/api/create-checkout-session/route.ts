@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { isTesterEmail } from "@/lib/comp-access";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -37,6 +38,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "You must be signed in to subscribe." },
         { status: 401 }
+      );
+    }
+
+    // Comped testers already have access — never create a Stripe subscription
+    if (isTesterEmail(stripeUser.email)) {
+      return NextResponse.json(
+        { error: "Your account already has complimentary Elite access." },
+        { status: 409 }
+      );
+    }
+    const { data: compRow } = await supabaseReal
+      .from("profiles")
+      .select("*")
+      .eq("id", stripeUser.id)
+      .single();
+    if (compRow?.comp_tier) {
+      return NextResponse.json(
+        { error: "Your account already has complimentary access." },
+        { status: 409 }
       );
     }
 

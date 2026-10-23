@@ -1,4 +1,5 @@
 import { SupabaseClient, createClient } from "@supabase/supabase-js";
+import { withCompTier } from "./comp-access";
 import { getEffectiveTier, TIER_LIMITS, type TierName } from "./tiers";
 
 function getAdmin(): SupabaseClient {
@@ -33,11 +34,13 @@ export async function checkFeatureAccess(
   feature: Feature
 ): Promise<AccessResult> {
   // Fetch profile
-  const { data: profile, error: profileError } = await supabase
+  const { data: rawProfile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", userId)
     .single();
+
+  const profile = rawProfile ? withCompTier(rawProfile) : null;
 
   if (profileError || !profile) {
     return {
