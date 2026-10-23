@@ -5,6 +5,8 @@ export interface UserProfile {
   email: string | null;
   tier: TierName;
   paid_tier: TierName | null;
+  /** Comped (tester) tier — wins over Stripe. Set server-side. */
+  comp_tier?: TierName | null;
   trial_end: string | null;
   voice_id: string | null;
   stripe_customer_id: string | null;
@@ -71,8 +73,12 @@ export const TIER_LIMITS: Record<TierName, TierLimits> = {
 export function getEffectiveTier(profile: {
   tier: string;
   paid_tier?: string | null;
+  comp_tier?: string | null;
   trial_end: string | null;
 }): TierName {
+  // Comped testers/early adopters win over everything (no Stripe sub).
+  const comp = profile.comp_tier?.toLowerCase();
+  if (comp === "elite" || comp === "pro") return comp;
   if (profile.tier === "trial") {
 // Any paid subscription takes precedence — paying customers should
     // never see trial messaging or the trial countdown.
@@ -96,6 +102,7 @@ export function getTrialDaysLeft(trialEnd: string | null): number {
 export function getLimitsForUser(profile: {
   tier: string;
   paid_tier?: string | null;
+  comp_tier?: string | null;
   trial_end: string | null;
 }): TierLimits {
   return TIER_LIMITS[getEffectiveTier(profile)];

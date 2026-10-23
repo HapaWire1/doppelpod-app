@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { withCompTier } from "@/lib/comp-access";
 import { DashboardClient } from "@/components/dashboard-client";
 
 export default async function DashboardPage() {
@@ -38,7 +39,7 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       user={{ id: user.id, email: user.email || "" }}
-      profile={profile || { tier: "expired", voice_id: null, trial_end: null, paid_tier: null }}
+      profile={profile ? withCompTier(profile, user.email) : { tier: "expired", voice_id: null, trial_end: null, paid_tier: null }}
       initialGenerations={generations || []}
       initialVideoJobs={videoJobs || []}
     />

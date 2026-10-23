@@ -34,7 +34,7 @@ interface VideoJob {
 
 interface DashboardClientProps {
   user: { id: string; email: string };
-  profile: { tier: string; voice_id: string | null; elevenlabs_voice_id?: string | null; fish_voice_id?: string | null; heygen_avatar_id?: string | null; comms_email?: string | null; trial_end?: string | null; paid_tier?: string | null };
+  profile: { tier: string; voice_id: string | null; elevenlabs_voice_id?: string | null; fish_voice_id?: string | null; heygen_avatar_id?: string | null; comms_email?: string | null; trial_end?: string | null; paid_tier?: string | null; comp_tier?: string | null };
   initialGenerations: Generation[];
   initialVideoJobs: VideoJob[];
 }
@@ -83,6 +83,7 @@ export function DashboardClient({
   const displayTier = loading ? getEffectiveTier({
     tier: profile.tier,
     paid_tier: profile.paid_tier ?? null,
+    comp_tier: profile.comp_tier ?? null,
     trial_end: profile.trial_end ?? null,
   }) : effectiveTier;
   const limits = TIER_LIMITS[displayTier];
@@ -131,6 +132,7 @@ export function DashboardClient({
   const [activePlan, setActivePlan] = useState(() => getEffectiveTier({
     tier: profile.tier,
     paid_tier: profile.paid_tier ?? null,
+    comp_tier: profile.comp_tier ?? null,
     trial_end: profile.trial_end ?? null,
   }));
 

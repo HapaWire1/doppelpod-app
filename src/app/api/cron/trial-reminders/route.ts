@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { isTesterEmail } from "@/lib/comp-access";
 import { buildTrialReminderEmail } from "@/lib/trial-reminder-email";
 
 export async function GET(req: NextRequest) {
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
   const { data: users, error } = await supabase
     .from("profiles")
-    .select("id, email, comms_email, trial_end")
+    .select("*")
     .is("paid_tier", null)
     .eq("email_confirmed", true)
     .eq("trial_reminder_sent", false)
@@ -45,6 +46,8 @@ export async function GET(req: NextRequest) {
   let sent = 0;
   for (const user of users || []) {
     if (!user.email) continue;
+    // Comped testers aren't on a trial — don't nag them to pay
+    if (isTesterEmail(user.email) || user.comp_tier) continue;
     const sendTo = user.comms_email ?? user.email;
 
     const daysLeft = Math.max(1, Math.ceil(

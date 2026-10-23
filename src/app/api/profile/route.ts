@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, createAdminSupabaseClient } from "@/lib/supabase-server";
 import { Resend } from "resend";
+import { withCompTier } from "@/lib/comp-access";
 import { buildVerificationEmail } from "@/lib/verification-email";
 
 function getCurrentPeriod(): string {
@@ -122,7 +123,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    profile: profile || { id: user.id, tier: "expired", trial_end: null, voice_id: null },
+    profile: profile ? withCompTier(profile, user.email) : { id: user.id, tier: "expired", trial_end: null, voice_id: null },
     usage: usage || { video_count: 0, cowork_sessions: 0, cowork_sessions_today: 0 },
   });
 }
