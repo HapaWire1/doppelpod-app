@@ -15,6 +15,17 @@ test("plan labels mark unshipped features as coming soon", async () => {
   assert.equal(ELITE_PRICE_YEARLY, "$690");
 });
 
+test("an ended elite trial is expired everywhere, a paid plan is not", async () => {
+  const { getEffectiveTier } = await import("./tiers.ts");
+  const past = new Date(Date.now() - 86_400_000).toISOString();
+  const future = new Date(Date.now() + 86_400_000).toISOString();
+  assert.equal(getEffectiveTier({ tier: "elite", paid_tier: null, trial_end: past }), "expired");
+  assert.equal(getEffectiveTier({ tier: "trial", paid_tier: null, trial_end: past }), "expired");
+  assert.equal(getEffectiveTier({ tier: "elite", paid_tier: "elite", trial_end: past }), "elite");
+  assert.equal(getEffectiveTier({ tier: "trial", paid_tier: null, trial_end: future }), "trial");
+  assert.equal(getEffectiveTier({ tier: "elite", paid_tier: null, comp_tier: "elite", trial_end: past }), "elite");
+});
+
 test("fallback twin post is a real post, not an echo of the topic", async () => {
   const { writeFallbackTwinPost } = await import("./twin-post.ts");
   const topic = "AI productivity";

@@ -16,6 +16,7 @@ import { GenerateWidget } from "@/components/generate-widget";
 import { AuroraBackground } from "@/components/aurora-background";
 import { WaveformCanvas } from "@/components/waveform-canvas";
 import { NavAuth } from "@/components/nav-auth";
+import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { FeatureCard } from "@/components/feature-card";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { SiteFooter } from "@/components/site-footer";
@@ -229,31 +230,27 @@ export default function Home() {
           </div>
           <NavAuth />
         </div>
-        {mobileNavOpen && (
-          <div className="border-t border-border/50 px-4 py-3 sm:hidden">
-            <div className="flex flex-col gap-2 text-sm">
-              {[
-                ["Features", "#features"],
-                ["Pricing", "#pricing"],
-                ["Demo", "#demo"],
-              ].map(([label, href]) => (
-                <a
-                  key={href}
-                  href={href}
-                  className="py-1.5 text-muted-foreground hover:text-foreground"
-                  onClick={() => setMobileNavOpen(false)}
-                >
-                  {label}
-                </a>
-              ))}
-              {user && (
-                <a href="/account" className="py-1.5 text-muted-foreground hover:text-foreground" onClick={() => setMobileNavOpen(false)}>
-                  Account & billing
-                </a>
-              )}
-            </div>
-          </div>
-        )}
+        <MobileNavDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)}>
+          {[
+            ["Features", "#features"],
+            ["Pricing", "#pricing"],
+            ["Demo", "#demo"],
+          ].map(([label, href]) => (
+            <a
+              key={href}
+              href={href}
+              className="block border-b border-border/20 py-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              {label}
+            </a>
+          ))}
+          {user && (
+            <a href="/account" className="block border-b border-border/20 py-2 text-sm text-muted-foreground hover:text-foreground" onClick={() => setMobileNavOpen(false)}>
+              Account & billing
+            </a>
+          )}
+        </MobileNavDrawer>
       </nav>
 
       {/* Hero */}

@@ -14,7 +14,10 @@ interface FeatureGateProps {
 export function FeatureGate({ feature, children, fallback, inline }: FeatureGateProps) {
   const { user, loading, effectiveTier, emailConfirmed, usage } = useAuth();
 
-  if (!user || loading) return <>{children}</>; // Auth gate handles login; wait for a fresh profile before locking
+  if (!user) return <>{children}</>; // Auth gate handles login
+  if (loading) {
+    return <div className="h-24 animate-pulse rounded-lg bg-muted/30" aria-busy="true" aria-label="Loading your plan" />;
+  }
 
   // Email confirmation gate
   if (!emailConfirmed) {

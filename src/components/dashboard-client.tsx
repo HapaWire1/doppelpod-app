@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth-provider";
 import { CheckoutModal } from "@/components/checkout-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
+import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { GenerateWidget } from "@/components/generate-widget";
 import { VoiceRecorder } from "@/components/voice-recorder";
 import { VoiceUploadZone } from "@/components/voice-upload-zone";
 import { SiteFooter } from "@/components/site-footer";
-import { TIER_LIMITS, getEffectiveTier } from "@/lib/tiers";
+import { TIER_LIMITS, getEffectiveTier, getTrialDaysLeft } from "@/lib/tiers";
 import {
   ELITE_FEATURES,
   ELITE_PRICE_MONTHLY,
@@ -154,16 +155,18 @@ export function DashboardClient({
   initialGenerations,
   initialVideoJobs,
 }: DashboardClientProps) {
-  const { signOut, loading, effectiveTier, emailConfirmed, trialDaysLeft, usage, refreshProfile, acknowledgeEmailVerified, updatePassword, deleteAccount } = useAuth();
-  // Use the server-rendered profile to compute the correct tier during the auth loading
-  // window. This prevents a flash of accessible content for expired users while the
-  // client-side profile fetch completes — the server already has the authoritative data.
-  const displayTier = loading ? getEffectiveTier({
+  const { signOut, profile: liveProfile, effectiveTier, emailConfirmed, usage, refreshProfile, acknowledgeEmailVerified, updatePassword, deleteAccount } = useAuth();
+  // Server profile is the tier until the client profile actually loads.
+  // A failed /api/profile must not replace that with the logged-out "expired" default,
+  // and an ended trial must not flash as Elite while auth is still resolving.
+  const serverTier = getEffectiveTier({
     tier: profile.tier,
     paid_tier: profile.paid_tier ?? null,
     comp_tier: profile.comp_tier ?? null,
     trial_end: profile.trial_end ?? null,
-  }) : effectiveTier;
+  });
+  const displayTier = liveProfile ? effectiveTier : serverTier;
+  const daysLeft = getTrialDaysLeft((liveProfile?.trial_end ?? profile.trial_end) ?? null);
   const limits = TIER_LIMITS[displayTier];
   const [generations, setGenerations] = useState<Generation[]>(initialGenerations);
   const [videoJobs, setVideoJobs] = useState<VideoJob[]>(initialVideoJobs);
@@ -523,13 +526,13 @@ export function DashboardClient({
           <>
             {/* Top nav bar */}
             <nav className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
-              <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-                <div className="flex items-center gap-3">
-                  {/* Hamburger — mobile only */}
+              <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
+                <div className="flex shrink-0 items-center gap-3">
                   <button
                     onClick={() => setMobileNavOpen(true)}
-                    className="lg:hidden flex flex-col justify-center gap-1.5 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex flex-col justify-center gap-1.5 p-1 text-muted-foreground hover:text-foreground transition-colors xl:hidden"
                     aria-label="Open navigation"
+                    aria-expanded={mobileNavOpen}
                   >
                     <span className="block h-0.5 w-5 bg-current" />
                     <span className="block h-0.5 w-5 bg-current" />
@@ -543,27 +546,25 @@ export function DashboardClient({
                   </Link>
                 </div>
 
-                {/* Nav links — centered, desktop only */}
-                <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-6">
-                  <span className="text-sm text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap">Navigation:</span>
+                <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 overflow-x-auto xl:flex">
                   {navLinks.map(({ label, href }) => (
                     <a
                       key={href}
                       href={href}
-                      className="text-sm text-pink-500 hover:text-pink-400 transition-colors whitespace-nowrap"
+                      className="shrink-0 text-sm text-pink-500 hover:text-pink-400 transition-colors whitespace-nowrap"
                     >
                       {label}
                     </a>
                   ))}
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-muted-foreground hidden sm:inline">
+                <div className="ml-auto flex shrink-0 items-center gap-3 xl:ml-0">
+                  <span className="hidden max-w-[7rem] truncate text-xs text-muted-foreground sm:inline xl:max-w-[12rem]" title={user.email}>
                     {user.email}
                   </span>
                   <button
                     onClick={() => signOut()}
-                    className="hidden lg:inline text-xs text-red-400/70 hover:text-red-300 transition-colors whitespace-nowrap cursor-pointer"
+                    className="hidden text-xs text-red-400/70 hover:text-red-300 transition-colors whitespace-nowrap cursor-pointer xl:inline"
                   >
                     Logout
                   </button>
@@ -571,45 +572,25 @@ export function DashboardClient({
               </div>
             </nav>
 
-            {/* Mobile drawer */}
-            {mobileNavOpen && (
-              <>
-                <div
-                  className="lg:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+            <MobileNavDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)}>
+              <p className="mb-3 break-all text-xs text-muted-foreground" title={user.email}>{user.email}</p>
+              {navLinks.map(({ label, href }) => (
+                <a
+                  key={href}
+                  href={href}
                   onClick={() => setMobileNavOpen(false)}
-                />
-                <div className="lg:hidden fixed left-0 top-0 z-[70] h-full w-56 bg-background border-r border-border/50 flex flex-col p-6 gap-1">
-                  <div className="flex items-center justify-between mb-6">
-                    <span className="text-sm font-semibold text-foreground">Navigation</span>
-                    <button
-                      onClick={() => setMobileNavOpen(false)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label="Close navigation"
-                    >
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                  {navLinks.map(({ label, href }) => (
-                    <a
-                      key={href}
-                      href={href}
-                      onClick={() => setMobileNavOpen(false)}
-                      className="text-sm text-muted-foreground hover:text-purple-400 transition-colors py-1.5 border-b border-border/20"
-                    >
-                      {label}
-                    </a>
-                  ))}
-                  <button
-                    onClick={() => { setMobileNavOpen(false); signOut(); }}
-                    className="text-sm text-red-400 hover:text-red-300 transition-colors text-left pt-1.5 mt-1 border-t border-border/20 cursor-pointer"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </>
-            )}
+                  className="block border-b border-border/20 py-2 text-sm text-muted-foreground hover:text-purple-400 transition-colors"
+                >
+                  {label}
+                </a>
+              ))}
+              <button
+                onClick={() => { setMobileNavOpen(false); signOut(); }}
+                className="mt-2 block w-full cursor-pointer border-t border-border/20 py-2 text-left text-sm text-red-400 hover:text-red-300 transition-colors"
+              >
+                Logout
+              </button>
+            </MobileNavDrawer>
           </>
         );
       })()}
@@ -708,7 +689,7 @@ export function DashboardClient({
                   }`}
                 >
                   {displayTier === "trial"
-                    ? `Trial (${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} left)`
+                    ? `Trial (${daysLeft} day${daysLeft !== 1 ? "s" : ""} left)`
                     : displayTier}
                 </span>
                 {profile.trial_end && (displayTier === "trial" || displayTier === "expired") && (
