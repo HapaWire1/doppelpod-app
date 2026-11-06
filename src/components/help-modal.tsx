@@ -147,9 +147,9 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
               <Step n={2}>
                 Scroll down to <strong className="text-foreground">Talking Video Avatar</strong>. You have three options:
                 <ul className="mt-1.5 ml-1 space-y-1 text-[12px]">
-                  <li><span className="text-foreground font-medium">Default avatar</span> — no photo needed, generates in 3–5 minutes using a built-in presenter</li>
-                  <li><span className="text-foreground font-medium">Use my avatar</span> — if you&apos;ve uploaded a photo before, your custom avatar is saved and ready (3–5 min)</li>
-                  <li><span className="text-foreground font-medium">Upload new photo</span> — upload a fresh portrait to create or update your custom avatar (15–25 min first time)</li>
+                  <li><span className="text-foreground font-medium">Default avatar</span> — no photo needed. Rendering still takes 15–60 minutes, not seconds.</li>
+                  <li><span className="text-foreground font-medium">Use my avatar</span> — a photo you already trained. Later videos skip the upload, and they still are not instant.</li>
+                  <li><span className="text-foreground font-medium">Upload new photo</span> — a fresh portrait. The first video takes 15–60 minutes. We email you when it is ready.</li>
                 </ul>
               </Step>
               <Step n={3}>
@@ -163,7 +163,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
               </Step>
             </div>
             <Warn>
-              Processing a new photo avatar can take up to 25 minutes. Once created, your avatar is saved — future videos generate in 3–5 minutes.
+              Plan on 15–60 minutes for a video. Keep the tab open only if you want to watch progress — we email you when the file is ready. A saved avatar skips the upload next time, but it does not render instantly.
             </Warn>
             <Tip>
               The longer and more detailed your script, the longer your video will be. Keep it under ~300 words for best results.

@@ -8,7 +8,7 @@ export function buildVerificationEmail(verificationUrl: string) {
   <p style="font-size:16px;line-height:1.6;color:#e2e2e2;">Hey,</p>
 
   <p style="font-size:16px;line-height:1.6;color:#e2e2e2;">
-    Thanks for signing up. Click below to verify your email and unlock all DoppelPod features — voice cloning, video avatars, Claude Cowork, and more.
+    Thanks for signing up. Click below to verify your email and unlock DoppelPod — voice cloning, twin posts, and video avatars. Videos take 15–60 minutes. Cowork, the virality score, and multi-platform posting are still coming soon.
   </p>
 
   <div style="text-align:center;margin:32px 0;">

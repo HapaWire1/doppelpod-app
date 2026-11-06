@@ -12,7 +12,7 @@ export function buildTrialReminderEmail(daysLeft: number, promoCode: string, pri
   </p>
 
   <p style="font-size:16px;line-height:1.6;color:#e2e2e2;">
-    You've had full access to voice cloning, video avatars, Claude Cowork, and priority rendering. To keep everything unlocked, subscribe now and get <strong style="color:#22c55e;">25% off your first month</strong>.
+    You've had access to voice cloning, twin posts, video avatars, and priority rendering. Cowork, the virality score, and multi-platform posting are still coming soon. To keep what is live unlocked, subscribe now and get <strong style="color:#22c55e;">25% off your first month</strong>.
   </p>
 
   <div style="margin:24px 0;padding:16px 20px;border-radius:12px;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.08);text-align:center;">
@@ -25,7 +25,7 @@ export function buildTrialReminderEmail(daysLeft: number, promoCode: string, pri
   </div>
 
   <p style="font-size:13px;line-height:1.6;color:#888;">
-    After your trial ends, you'll lose access to voice cloning, video avatars, Claude Cowork, and data export. Your account and past generations will be saved.
+    After your trial ends, you'll lose access to voice cloning, video avatars, and data export. Your account and past generations will be saved.
   </p>
 
   <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#666;">

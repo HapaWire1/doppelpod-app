@@ -104,7 +104,7 @@ export function VideoPlayer({
             </p>
           </div>
           <p className="text-xs text-muted-foreground text-center">
-            Your video is rendering — typically 3–5 minutes, or up to 25 min for a new photo avatar
+            Videos take 15–60 minutes. You can leave this page — we&apos;ll email you when it&apos;s ready.
           </p>
         </motion.div>
       )}

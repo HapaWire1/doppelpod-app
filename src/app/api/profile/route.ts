@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 import { createServerSupabaseClient, createAdminSupabaseClient } from "@/lib/supabase-server";
 import { Resend } from "resend";
 import { withCompTier } from "@/lib/comp-access";
@@ -122,8 +124,11 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({
-    profile: profile ? withCompTier(profile, user.email) : { id: user.id, tier: "expired", trial_end: null, voice_id: null },
-    usage: usage || { video_count: 0, cowork_sessions: 0, cowork_sessions_today: 0 },
-  });
+  return NextResponse.json(
+    {
+      profile: profile ? withCompTier(profile, user.email) : { id: user.id, tier: "expired", trial_end: null, voice_id: null },
+      usage: usage || { video_count: 0, cowork_sessions: 0, cowork_sessions_today: 0 },
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

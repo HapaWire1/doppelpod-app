@@ -11,13 +11,20 @@ import { VideoPlayer } from "@/components/video-player";
 import { FeatureGate, UsageBadge } from "@/components/feature-gate";
 import { HelpModal } from "@/components/help-modal";
 
+interface SavedGeneration {
+  id: string;
+  input_text: string;
+  output_text: string;
+  created_at: string;
+}
+
 interface GenerateWidgetProps {
-  onCoworkOpen?: () => void;
   onLoadingChange?: (loading: boolean) => void;
+  onGenerated?: (generation: SavedGeneration) => void;
   placeholder?: string;
 }
 
-export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: GenerateWidgetProps) {
+export function GenerateWidget({ onLoadingChange, onGenerated, placeholder }: GenerateWidgetProps) {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [aiOutput, setAiOutput] = useState(""); // stores AI-generated text so bypass is reversible
@@ -63,6 +70,8 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
   const [savedAvatarId, setSavedAvatarId] = useState<string | null>(null);
   const [useSavedAvatar, setUseSavedAvatar] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [hasVoiceSample, setHasVoiceSample] = useState<boolean | null>(null);
+  const [hasClonedVoice, setHasClonedVoice] = useState(false);
 
   useEffect(() => {
     fetch("/api/user-avatars")
@@ -72,6 +81,14 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
           setSavedAvatarId(data.avatarId);
           setUseSavedAvatar(true); // default to saved avatar if one exists
         }
+      })
+      .catch(() => {});
+    fetch("/api/profile", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.profile) return;
+        setHasVoiceSample(!!data.profile.voice_id);
+        setHasClonedVoice(!!(data.profile.elevenlabs_voice_id || data.profile.fish_voice_id));
       })
       .catch(() => {});
   }, []);
@@ -167,17 +184,13 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
         throw new Error(data.error || "Generation failed");
       }
 
-      if (data.fallback || !data.text) {
-        const lines = rawText.split("\n").filter((l) => l.trim()).slice(0, 3);
-        const twinPost =
-          lines.length > 0
-            ? `AI Twin version:\n\n"${lines[0].trim().replace(/^["']|["']$/g, "")} — but make it 10x more magnetic.\n\nHere's the thing most people won't tell you: consistency beats virality. Your AI twin knows this.\n\n🔥 Drop a follow if this hits different."`
-            : "Paste some posts above to see your AI twin in action!";
-        setOutput(twinPost);
-        setAiOutput(twinPost);
-      } else {
-        setOutput(data.text);
-        setAiOutput(data.text);
+      if (!data.text) {
+        throw new Error(data.error || "Generation failed");
+      }
+      setOutput(data.text);
+      setAiOutput(data.text);
+      if (data.generation?.id) {
+        onGenerated?.(data.generation);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -458,12 +471,17 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Cloning your voice...
+            Writing your post…
           </span>
         ) : (
           "Generate Twin Post"
         )}
       </Button>
+      {hasVoiceSample === false && (
+        <p className="text-xs text-amber-300/90 leading-relaxed">
+          No voice sample uploaded. This writes a text post only — it does not clone a voice. Add a sample under Voice Clone to hear the post in your own voice.
+        </p>
+      )}
 
       {/* Output */}
       {output && (
@@ -540,23 +558,6 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
           {/* Output text */}
           <p className="whitespace-pre-wrap text-xs leading-relaxed sm:text-sm">{output}</p>
 
-          {/* Cowork button */}
-          {onCoworkOpen && (
-            <Button
-              variant="outline"
-              className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20"
-              onClick={onCoworkOpen}
-            >
-              <span className="mr-2 flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-purple-500 to-pink-500 text-xs font-bold text-white">
-                C
-              </span>
-              Claude Cowork — Refine with AI
-              <span className="ml-auto rounded-full bg-purple-500/10 px-1.5 py-0.5 text-[11px] font-medium text-purple-400 border border-purple-500/20">
-                ELITE
-              </span>
-            </Button>
-          )}
-
           {/* Voice section */}
           <FeatureGate feature="voice">
             <div className="border-t border-purple-500/20 pt-4 space-y-4">
@@ -613,18 +614,30 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
               )}
 
               {!audioReady && !ttsLoading && (
-                <Button
-                  variant="outline"
-                  className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20"
-                  onClick={handleTextToSpeech}
-                >
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" x2="12" y1="19" y2="22" />
-                  </svg>
-                  Hear My Twin Speak It
-                </Button>
+                <div className="space-y-2">
+                  {hasVoiceSample === false && (
+                    <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                      No voice sample on file. Playback uses a default voice, not a clone of yours.
+                    </p>
+                  )}
+                  {hasVoiceSample && !hasClonedVoice && (
+                    <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                      Your sample is saved, but the clone is not ready yet. Playback uses a default voice until cloning finishes.
+                    </p>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20"
+                    onClick={handleTextToSpeech}
+                  >
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" x2="12" y1="19" y2="22" />
+                    </svg>
+                    {hasClonedVoice ? "Hear My Twin Speak It" : "Play with default voice"}
+                  </Button>
+                </div>
               )}
 
               {ttsLoading && (
@@ -714,7 +727,7 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
 
       {/* Video Avatar Section — always visible, no text generation required */}
       <FeatureGate feature="video">
-        <div className={`rounded-lg border bg-card p-4 space-y-4 transition-colors duration-700 ${videoSectionHighlight ? "border-purple-400/60" : "border-border/50"}`}>
+        <div id="talking-video" className={`scroll-mt-24 rounded-lg border bg-card p-4 space-y-4 transition-colors duration-700 ${videoSectionHighlight ? "border-purple-400/60" : "border-border/50"}`}>
           <p className="text-xs font-medium text-purple-400 flex items-center gap-2">
             TALKING VIDEO AVATAR
             <UsageBadge feature="video" />
@@ -773,10 +786,7 @@ export function GenerateWidget({ onCoworkOpen, onLoadingChange, placeholder }: G
                   <li>✗ No heavy filters, masks, or obstructions</li>
                 </ul>
                 <p className="text-xs text-muted-foreground/60 pt-0.5">
-                  Must be a real photo with a detectable human face. Non-portrait or non-photo images will fail during processing. Once created, your avatar is saved for instant reuse.
-                </p>
-                <p className="text-xs text-purple-400/70 pt-0.5">
-                  ✦ For the most realistic lip-sync, use a photo where your teeth are naturally visible — even a relaxed smile works great.
+                  Must be a real photo with a detectable human face. Non-portrait or non-photo images will fail during processing. After the first video, the avatar is saved so you don&apos;t upload again. The first custom video still takes 15–60 minutes.
                 </p>
               </div>
               <AvatarUpload

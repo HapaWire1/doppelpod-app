@@ -12,9 +12,9 @@ interface FeatureGateProps {
 }
 
 export function FeatureGate({ feature, children, fallback, inline }: FeatureGateProps) {
-  const { user, effectiveTier, emailConfirmed, usage } = useAuth();
+  const { user, loading, effectiveTier, emailConfirmed, usage } = useAuth();
 
-  if (!user) return <>{children}</>; // Auth gate handles login
+  if (!user || loading) return <>{children}</>; // Auth gate handles login; wait for a fresh profile before locking
 
   // Email confirmation gate
   if (!emailConfirmed) {

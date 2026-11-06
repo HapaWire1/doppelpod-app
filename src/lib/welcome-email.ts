@@ -1,20 +1,8 @@
+import { ELITE_FEATURES, PRO_FEATURES, featureLabel } from "@/lib/plans";
+
 const TIER_FEATURES: Record<string, string[]> = {
-  Pro: [
-    "Unlimited voice generation",
-    "10 video avatars/month",
-    "Basic Cowork (text-only, 10/day)",
-    "3 platforms",
-    "Virality predictor",
-    "Priority support",
-  ],
-  Elite: [
-    "Unlimited voice generation",
-    "Unlimited video avatars",
-    "Full Cowork (voice chat + unlimited)",
-    "Priority rendering",
-    "Unlimited platforms",
-    "Dedicated account manager",
-  ],
+  Pro: PRO_FEATURES.map(featureLabel),
+  Elite: ELITE_FEATURES.map(featureLabel),
 };
 
 export function buildWelcomeEmail(tier: string) {
@@ -43,10 +31,13 @@ export function buildWelcomeEmail(tier: string) {
   <div style="margin:24px 0;padding:20px;border-radius:12px;border:1px solid rgba(147,51,234,0.3);background:rgba(147,51,234,0.08);">
     <p style="margin:0 0 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#a855f7;">What you can do right now</p>
     <ul style="margin:0;padding:0 0 0 20px;font-size:14px;line-height:1.8;">
-      <li style="padding:4px 0;color:#e2e2e2;"><strong>Voice Cloning</strong> — generate posts that sound like you, not a robot</li>
-      <li style="padding:4px 0;color:#e2e2e2;"><strong>Video Avatars</strong> — AI-generated video content with your likeness</li>
-      <li style="padding:4px 0;color:#e2e2e2;"><strong>Claude Cowork</strong> — brainstorm and refine content with AI in real time</li>
-      <li style="padding:4px 0;color:#e2e2e2;"><strong>Virality Predictor</strong> — every post gets scored before it goes live</li>
+      <li style="padding:4px 0;color:#e2e2e2;"><strong>Voice cloning</strong> — upload a sample, then hear posts in your voice</li>
+      <li style="padding:4px 0;color:#e2e2e2;"><strong>Twin posts</strong> — turn a topic into a post you can copy</li>
+      <li style="padding:4px 0;color:#e2e2e2;"><strong>Video avatars</strong> — talking video from your script. These take 15–60 minutes, and we email you when they are ready</li>
+    </ul>
+    <p style="margin:16px 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#a855f7;">Your ${tierName} plan</p>
+    <ul style="margin:0;padding:0 0 0 20px;font-size:14px;line-height:1.8;">
+      ${featureListHtml}
     </ul>
   </div>
 
@@ -57,8 +48,10 @@ export function buildWelcomeEmail(tier: string) {
   <div style="margin:24px 0;padding:20px;border-radius:12px;border:1px solid rgba(147,51,234,0.15);background:rgba(147,51,234,0.04);">
     <p style="margin:0 0 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#a855f7;">What's coming next</p>
     <ul style="margin:0;padding:0 0 0 20px;font-size:14px;line-height:1.8;">
+      <li style="padding:4px 0;color:#e2e2e2;"><strong>Cowork</strong> — coming soon</li>
+      <li style="padding:4px 0;color:#e2e2e2;"><strong>Virality score</strong> — coming soon</li>
       <li style="padding:4px 0;color:#e2e2e2;"><strong>Agentic Autopilot</strong> — your twin posts, replies, and engages on its own</li>
-      <li style="padding:4px 0;color:#e2e2e2;"><strong>Multi-platform publishing</strong> — X, LinkedIn, Instagram, TikTok from one place</li>
+      <li style="padding:4px 0;color:#e2e2e2;"><strong>Multi-platform posting</strong> — coming soon. X, LinkedIn, Instagram, and TikTok from one place</li>
       <li style="padding:4px 0;color:#e2e2e2;"><strong>Scheduling &amp; analytics</strong> — full control over when and how your twin shows up</li>
     </ul>
   </div>

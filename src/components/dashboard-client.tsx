@@ -12,6 +12,18 @@ import { VoiceRecorder } from "@/components/voice-recorder";
 import { VoiceUploadZone } from "@/components/voice-upload-zone";
 import { SiteFooter } from "@/components/site-footer";
 import { TIER_LIMITS, getEffectiveTier } from "@/lib/tiers";
+import {
+  ELITE_FEATURES,
+  ELITE_PRICE_MONTHLY,
+  ELITE_PRICE_YEARLY,
+  PRO_FEATURES,
+  PRO_PRICE_MONTHLY,
+  PRO_PRICE_YEARLY,
+  featureLabel,
+  formatTrialEnd,
+  planPrice,
+} from "@/lib/plans";
+import { startStripeCheckout } from "@/lib/start-checkout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Link from "next/link";
 
@@ -34,9 +46,75 @@ interface VideoJob {
 
 interface DashboardClientProps {
   user: { id: string; email: string };
-  profile: { tier: string; voice_id: string | null; elevenlabs_voice_id?: string | null; fish_voice_id?: string | null; heygen_avatar_id?: string | null; comms_email?: string | null; trial_end?: string | null; paid_tier?: string | null; comp_tier?: string | null };
+  profile: { tier: string; voice_id: string | null; elevenlabs_voice_id?: string | null; fish_voice_id?: string | null; heygen_avatar_id?: string | null; comms_email?: string | null; trial_end?: string | null; paid_tier?: string | null; comp_tier?: string | null; email_confirmed?: boolean | null; stripe_customer_id?: string | null };
   initialGenerations: Generation[];
   initialVideoJobs: VideoJob[];
+}
+
+function OnboardingChecklist({
+  hasVoiceOrPhoto,
+  hasPost,
+  hasVideo,
+}: {
+  hasVoiceOrPhoto: boolean;
+  hasPost: boolean;
+  hasVideo: boolean;
+}) {
+  const steps = [
+    {
+      label: "Upload your voice or photo",
+      detail: "A voice sample unlocks your own playback. A photo is optional and lives in the video section.",
+      href: hasVoiceOrPhoto ? "#talking-video" : "#voice-clone",
+      done: hasVoiceOrPhoto,
+    },
+    {
+      label: "Create your first twin post",
+      detail: "Type a topic and generate a post. It is saved in Past generations.",
+      href: "#generate",
+      done: hasPost,
+    },
+    {
+      label: "Try a talking video",
+      detail: "Videos take 15–60 minutes. We email you when the file is ready.",
+      href: "#talking-video",
+      done: hasVideo,
+    },
+  ];
+  const remaining = steps.filter((step) => !step.done).length;
+  if (remaining === 0) return null;
+
+  return (
+    <Card className="border-purple-500/30 bg-purple-950/10">
+      <CardHeader>
+        <CardTitle className="text-lg">Get your twin ready</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {remaining} step{remaining === 1 ? "" : "s"} left on your first run.
+        </p>
+        <ol className="space-y-2">
+          {steps.map((step, index) => (
+            <li key={step.label}>
+              <a
+                href={step.href}
+                className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2 transition-colors hover:border-purple-500/40"
+              >
+                <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${step.done ? "bg-green-500/20 text-green-400" : "bg-purple-500/20 text-purple-300"}`}>
+                  {step.done ? "✓" : index + 1}
+                </span>
+                <span>
+                  <span className={`block text-sm font-medium ${step.done ? "text-muted-foreground line-through" : ""}`}>
+                    {step.label}
+                  </span>
+                  {!step.done && <span className="block text-xs text-muted-foreground">{step.detail}</span>}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ExpiredOverlay({ onUpgrade }: { onUpgrade: () => void }) {
@@ -76,7 +154,7 @@ export function DashboardClient({
   initialGenerations,
   initialVideoJobs,
 }: DashboardClientProps) {
-  const { signOut, loading, effectiveTier, emailConfirmed, trialDaysLeft, usage, refreshProfile, updatePassword, deleteAccount } = useAuth();
+  const { signOut, loading, effectiveTier, emailConfirmed, trialDaysLeft, usage, refreshProfile, acknowledgeEmailVerified, updatePassword, deleteAccount } = useAuth();
   // Use the server-rendered profile to compute the correct tier during the auth loading
   // window. This prevents a flash of accessible content for expired users while the
   // client-side profile fetch completes — the server already has the authoritative data.
@@ -87,7 +165,7 @@ export function DashboardClient({
     trial_end: profile.trial_end ?? null,
   }) : effectiveTier;
   const limits = TIER_LIMITS[displayTier];
-  const [generations] = useState<Generation[]>(initialGenerations);
+  const [generations, setGenerations] = useState<Generation[]>(initialGenerations);
   const [videoJobs, setVideoJobs] = useState<VideoJob[]>(initialVideoJobs);
   const [copiedGenId, setCopiedGenId] = useState<string | null>(null);
 
@@ -138,28 +216,18 @@ export function DashboardClient({
 
   const tierInfo = {
     pro: {
-      price: "$29",
-      yearlyPrice: "$290",
-      features: [
-        "Unlimited AI posts",
-        "All platforms",
-        "Advanced voice cloning",
-        "Basic video avatars",
-        "Priority support",
-      ],
+      price: PRO_PRICE_MONTHLY,
+      yearlyPrice: PRO_PRICE_YEARLY,
+      features: PRO_FEATURES.map(featureLabel),
     },
     elite: {
-      price: "$69",
-      yearlyPrice: "$690",
-      features: [
-        "Everything in Pro",
-        "Claude Cowork",
-        "Advanced video avatars",
-        "Priority generation",
-        "Dedicated account manager",
-      ],
+      price: ELITE_PRICE_MONTHLY,
+      yearlyPrice: ELITE_PRICE_YEARLY,
+      features: ELITE_FEATURES.map(featureLabel),
     },
   };
+  const [upgradeError, setUpgradeError] = useState("");
+  const [upgradeLoading, setUpgradeLoading] = useState<"pro" | "elite" | null>(null);
   // Account management state
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -195,8 +263,9 @@ export function DashboardClient({
     const commsResult = params.get("comms_email");
 
     if (verify === "success") {
-      setVerifyMessage("Email verified! All features are now unlocked.");
-      refreshProfile();
+      setVerifyMessage("Email verified. Voice, posts, and video are unlocked.");
+      acknowledgeEmailVerified();
+      void refreshProfile();
       window.history.replaceState({}, "", "/dashboard");
     } else if (verify === "invalid") {
       setVerifyMessage("Invalid or expired verification link. Try resending.");
@@ -225,7 +294,11 @@ export function DashboardClient({
       setCommsEmailStatus({ type: "error", message: "Invalid confirmation link." });
       window.history.replaceState({}, "", "/dashboard");
     }
-  }, [refreshProfile]);
+  }, [acknowledgeEmailVerified, refreshProfile]);
+
+  useEffect(() => {
+    if (profile.email_confirmed) acknowledgeEmailVerified();
+  }, [profile.email_confirmed, acknowledgeEmailVerified]);
 
   async function handleResendVerification() {
     setResendLoading(true);
@@ -233,7 +306,8 @@ export function DashboardClient({
       const res = await fetch("/api/send-verification-email", { method: "POST" });
       const data = await res.json();
       if (data.already_confirmed) {
-        refreshProfile();
+        acknowledgeEmailVerified();
+        void refreshProfile();
       } else {
         setResendSent(true);
         setTimeout(() => setResendSent(false), 5000);
@@ -331,6 +405,22 @@ export function DashboardClient({
     // If successful, deleteAccount redirects to homepage
   }
 
+  async function handleUpgradeCheckout(tier: "pro" | "elite") {
+    setUpgradeError("");
+    setUpgradeLoading(tier);
+    try {
+      const result = await startStripeCheckout(tier, upgradeBillingPeriod);
+      if (result.mock) {
+        setActivePlan(tier);
+        setUpgradeModalOpen(false);
+      }
+    } catch (err) {
+      setUpgradeError(err instanceof Error ? err.message : "Checkout failed");
+    } finally {
+      setUpgradeLoading(null);
+    }
+  }
+
   async function handleBillingPortal() {
     setBillingLoading(true);
     try {
@@ -423,6 +513,7 @@ export function DashboardClient({
       {(() => {
         const navLinks = [
           { label: "Account",          href: "#account" },
+          { label: "Billing",          href: "/account" },
           { label: "Generate",         href: "#generate" },
           { label: "Voice Clone",      href: "#voice-clone" },
           { label: "Video Jobs",       href: "#video-jobs" },
@@ -431,7 +522,7 @@ export function DashboardClient({
         return (
           <>
             {/* Top nav bar */}
-            <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
+            <nav className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
               <div className="relative mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
                 <div className="flex items-center gap-3">
                   {/* Hamburger — mobile only */}
@@ -484,10 +575,10 @@ export function DashboardClient({
             {mobileNavOpen && (
               <>
                 <div
-                  className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+                  className="lg:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
                   onClick={() => setMobileNavOpen(false)}
                 />
-                <div className="lg:hidden fixed left-0 top-0 z-50 h-full w-56 bg-background border-r border-border/50 flex flex-col p-6 gap-1">
+                <div className="lg:hidden fixed left-0 top-0 z-[70] h-full w-56 bg-background border-r border-border/50 flex flex-col p-6 gap-1">
                   <div className="flex items-center justify-between mb-6">
                     <span className="text-sm font-semibold text-foreground">Navigation</span>
                     <button
@@ -523,18 +614,18 @@ export function DashboardClient({
         );
       })()}
 
-      <main className="mx-auto max-w-4xl px-4 pt-24 pb-16 space-y-8">
+      <main className="mx-auto max-w-4xl px-4 pt-8 pb-16 space-y-8">
         {verifyMessage && (
           <div className={`rounded-lg border p-4 text-sm font-medium ${verifyMessage.includes("unlocked") ? "border-green-500/30 bg-green-950/20 text-green-400" : "border-red-500/30 bg-red-950/20 text-red-400"}`}>
             {verifyMessage}
           </div>
         )}
-        {!emailConfirmed && (
+        {!emailConfirmed && !profile.email_confirmed && (
           <div className="rounded-lg border border-yellow-500/30 bg-yellow-950/20 p-4 flex items-center gap-3">
             <span className="text-xl">&#9993;&#65039;</span>
             <div className="flex-1">
               <p className="text-sm font-medium text-yellow-400">Confirm your email to unlock all features</p>
-              <p className="text-xs text-foreground/70 mt-0.5">Check your inbox for a confirmation link. Voice generation, video, Cowork, and data export are locked until confirmed.</p>
+              <p className="text-xs text-foreground/70 mt-0.5">Check your inbox for a confirmation link. Voice, posts, video, and data export stay locked until you confirm.</p>
             </div>
             <Button
               size="sm"
@@ -556,7 +647,9 @@ export function DashboardClient({
             <div>
               <h1 className="text-2xl font-bold sm:text-3xl">Dashboard</h1>
               <p className="mt-1 text-sm text-foreground/70">
-                Manage your AI twin, view past generations, and upgrade your plan.
+                {generations.length === 0 && !profile.voice_id && videoJobs.length === 0
+                  ? "Three steps to a first post and a video. Nothing here repeats until you create it."
+                  : "Your voice, posts, and videos."}
               </p>
             </div>
             <Button
@@ -571,12 +664,19 @@ export function DashboardClient({
           </div>
         </motion.div>
 
+        <OnboardingChecklist
+          hasVoiceOrPhoto={!!(profile.voice_id || profile.heygen_avatar_id)}
+          hasPost={generations.length > 0}
+          hasVideo={videoJobs.length > 0}
+        />
+
         {/* Account Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
           id="account"
+          className="scroll-mt-24"
         >
           <Card className="border-border/50 bg-card/50">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -611,6 +711,14 @@ export function DashboardClient({
                     ? `Trial (${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} left)`
                     : displayTier}
                 </span>
+                {profile.trial_end && (displayTier === "trial" || displayTier === "expired") && (
+                  <span className="text-xs text-muted-foreground">
+                    {displayTier === "expired" ? "Trial ended" : "Trial ends"} {formatTrialEnd(profile.trial_end)}
+                  </span>
+                )}
+                <Link href="/account" className="text-xs text-purple-300 underline-offset-2 hover:underline">
+                  Billing details
+                </Link>
                 {(displayTier === "expired" || displayTier === "trial") && (
                   <Button
                     size="sm"
@@ -667,12 +775,8 @@ export function DashboardClient({
                       </p>
                     </div>
                     <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5">
-                      <p className="text-xs text-muted-foreground">Cowork Today</p>
-                      <p className="text-sm font-semibold">
-                        {usage.cowork_sessions_today}
-                        {limits.coworkDailyLimit !== null && <span className="text-muted-foreground font-normal">/{limits.coworkDailyLimit}</span>}
-                        {limits.coworkDailyLimit === null && <span className="text-muted-foreground font-normal text-xs ml-1">unlimited</span>}
-                      </p>
+                      <p className="text-xs text-muted-foreground">Twin posts</p>
+                      <p className="text-sm font-semibold">{generations.length}</p>
                     </div>
                   </div>
                 </div>
@@ -688,12 +792,9 @@ export function DashboardClient({
                   <span className={limits.video ? "text-foreground/70" : "text-muted-foreground/40 line-through"}>
                     {limits.video ? "✓" : "✗"} Talking video{limits.videoLimit !== null ? ` (${limits.videoLimit}/mo)` : " (unlimited)"}
                   </span>
-                  <span className={limits.cowork ? "text-foreground/70" : "text-muted-foreground/40 line-through"}>
-                    {limits.cowork ? "✓" : "✗"} Cowork{limits.coworkDailyLimit !== null ? ` (${limits.coworkDailyLimit}/day)` : " (unlimited)"}
-                  </span>
-                  <span className={limits.coworkVoiceChat ? "text-foreground/70" : "text-muted-foreground/40 line-through"}>
-                    {limits.coworkVoiceChat ? "✓" : "✗"} Cowork voice chat
-                  </span>
+                  <span className="text-muted-foreground/70">Cowork — coming soon</span>
+                  <span className="text-muted-foreground/70">Virality score — coming soon</span>
+                  <span className="text-muted-foreground/70">Multi-platform posting — coming soon</span>
                   <span className={limits.priorityRendering ? "text-foreground/70" : "text-muted-foreground/40 line-through"}>
                     {limits.priorityRendering ? "✓" : "✗"} Priority rendering
                   </span>
@@ -876,16 +977,24 @@ export function DashboardClient({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.15 }}
-          className="relative"
+          className="relative scroll-mt-24"
           id="generate"
         >
           {displayTier === "expired" && <ExpiredOverlay onUpgrade={() => setUpgradeModalOpen(true)} />}
           <Card className={`border-border/50 bg-card/50 ${displayTier === "expired" ? "pointer-events-none" : ""}`}>
             <CardHeader>
-              <CardTitle className="text-lg">Generate Post - Text or Video</CardTitle>
+              <CardTitle className="text-lg">Generate a twin post</CardTitle>
             </CardHeader>
             <CardContent>
-              <GenerateWidget placeholder="Type or paste your text here..." />
+              {generations.length === 0 && (
+                <p className="mb-3 text-sm text-muted-foreground">
+                  No posts yet. Type a topic — not just a title you want echoed — and generate a post. It is saved under Past generations.
+                </p>
+              )}
+              <GenerateWidget
+                placeholder="Type a topic or paste a post..."
+                onGenerated={(generation) => setGenerations((current) => [generation, ...current])}
+              />
             </CardContent>
           </Card>
         </motion.div>
@@ -895,7 +1004,7 @@ export function DashboardClient({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
-          className="relative"
+          className="relative scroll-mt-24"
           id="voice-clone"
         >
           {displayTier === "expired" && <ExpiredOverlay onUpgrade={() => setUpgradeModalOpen(true)} />}
@@ -904,9 +1013,18 @@ export function DashboardClient({
               <CardTitle className="text-lg">Voice Clone</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-foreground/70">
-                Give your AI twin your voice. Upload an existing file or record directly in the browser.
-              </p>
+              {profile.voice_id || hasClonedVoice ? (
+                <p className="text-sm text-foreground/70">
+                  Voice sample on file. Upload a new one only if you want to replace it.
+                </p>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-center">
+                  <p className="text-sm font-medium">No voice sample yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Upload a file or record in the browser. Until you do, posts stay text-only and playback uses a default voice.
+                  </p>
+                </div>
+              )}
 
               {/* Tab switcher */}
               <div className="flex rounded-lg border border-border/50 p-0.5 bg-muted/30 text-sm">
@@ -950,7 +1068,7 @@ export function DashboardClient({
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                   <p className="text-xs text-green-400">
-                    Custom avatar saved — select &quot;Use my avatar&quot; in the Generate panel to skip the 15-min wait.
+                    Custom avatar saved. Select &quot;Use my avatar&quot; in Generate so you don&apos;t upload again. Rendering still takes 15–60 minutes.
                   </p>
                 </div>
               )}
@@ -959,18 +1077,35 @@ export function DashboardClient({
         </motion.div>
 
         {/* Video Jobs */}
-        {videoJobs.length > 0 && (
+        {(
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.25 }}
             id="video-jobs"
+            className="scroll-mt-24"
           >
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
                 <CardTitle className="text-lg">Video Jobs</CardTitle>
               </CardHeader>
               <CardContent>
+                {videoJobs.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-sm font-medium">No videos yet</p>
+                    <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                      A talking video takes 15–60 minutes. Start one from Generate, then come back here for the download. We also email you when it is ready.
+                    </p>
+                    <a href="#talking-video">
+                      <Button
+                        className="mt-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700"
+                        size="sm"
+                      >
+                        Try a video
+                      </Button>
+                    </a>
+                  </div>
+                ) : (
                 <div className="space-y-3">
                   {videoJobs.map((job) => {
                     const isActive = ACTIVE_STATUSES.has(job.status);
@@ -1028,6 +1163,7 @@ export function DashboardClient({
                     );
                   })}
                 </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -1038,7 +1174,7 @@ export function DashboardClient({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="relative"
+          className="relative scroll-mt-24"
           id="past-generations"
         >
           {displayTier === "expired" && <ExpiredOverlay onUpgrade={() => setUpgradeModalOpen(true)} />}
@@ -1049,17 +1185,18 @@ export function DashboardClient({
             <CardContent>
               {generations.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    No generations yet.
+                  <p className="text-sm font-medium">No twin posts yet</p>
+                  <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                    Generate a post above. It shows up here as soon as it is saved — you do not need to leave the dashboard.
                   </p>
-                  <Link href="/#demo">
+                  <a href="#generate">
                     <Button
                       className="mt-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700"
                       size="sm"
                     >
-                      Try the Demo
+                      Create your first post
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1111,7 +1248,7 @@ export function DashboardClient({
       </main>
 
       <Dialog open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-center text-lg">Choose Your Plan</DialogTitle>
           </DialogHeader>
@@ -1130,34 +1267,44 @@ export function DashboardClient({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-1">
+          <div className="grid grid-cols-1 gap-4 pt-1 sm:grid-cols-2">
             {(["pro", "elite"] as const).map((tier) => {
-              const displayPrice = upgradeBillingPeriod === "yearly" ? tierInfo[tier].yearlyPrice : tierInfo[tier].price;
+              const displayPrice = planPrice(tier, upgradeBillingPeriod);
               const period = upgradeBillingPeriod === "yearly" ? "/yr" : "/mo";
               return (
-                <button
+                <div
                   key={tier}
-                  onClick={() => {
-                    setUpgradeModalOpen(false);
-                    setCheckoutTier(tier);
-                    setCheckoutOpen(true);
-                  }}
-                  className="flex flex-col gap-2 rounded-lg border border-border/50 p-4 text-left hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors"
+                  className="flex flex-col gap-3 rounded-lg border border-border/50 p-4 text-left"
                 >
-                  <span className="font-semibold capitalize text-foreground">{tier}</span>
-                  <span className="text-lg font-bold text-purple-400">{displayPrice}<span className="text-xs font-normal text-muted-foreground">{period}</span></span>
-                  <ul className="space-y-1 mt-1">
+                  <div>
+                    <span className="font-semibold capitalize text-foreground">{tier}</span>
+                    <p className="text-lg font-bold text-purple-400">{displayPrice}<span className="text-xs font-normal text-muted-foreground">{period}</span></p>
+                  </div>
+                  <ul className="space-y-1 flex-1">
                     {tierInfo[tier].features.map((f) => (
                       <li key={f} className="text-xs text-muted-foreground flex items-start gap-1">
-                        <span className="text-purple-400 mt-0.5">✓</span>
+                        <span className="text-purple-400 mt-0.5">{f.includes("coming soon") ? "–" : "✓"}</span>
                         {f}
                       </li>
                     ))}
                   </ul>
-                </button>
+                  <Button
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700"
+                    disabled={upgradeLoading !== null}
+                    onClick={() => handleUpgradeCheckout(tier)}
+                  >
+                    {upgradeLoading === tier ? "Opening checkout..." : `Checkout — ${displayPrice}${period}`}
+                  </Button>
+                </div>
               );
             })}
           </div>
+          {upgradeError && (
+            <p className="text-xs text-red-400">{upgradeError}</p>
+          )}
+          <p className="text-center text-[11px] text-muted-foreground">
+            Secure payment via Stripe. Prices are Pro {PRO_PRICE_MONTHLY}/mo or {PRO_PRICE_YEARLY}/yr, Elite {ELITE_PRICE_MONTHLY}/mo or {ELITE_PRICE_YEARLY}/yr.
+          </p>
         </DialogContent>
       </Dialog>
 

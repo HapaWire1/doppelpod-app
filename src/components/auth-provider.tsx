@@ -19,9 +19,11 @@ interface AuthContextType {
   effectiveTier: TierName;
   emailConfirmed: boolean;
   trialDaysLeft: number;
+  trialEnd: string | null;
   refreshProfile: () => Promise<void>;
+  acknowledgeEmailVerified: () => void;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string) => Promise<{ error?: string; signedIn?: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
@@ -36,7 +38,9 @@ const AuthContext = createContext<AuthContextType>({
   effectiveTier: "expired",
   emailConfirmed: false,
   trialDaysLeft: 0,
+  trialEnd: null,
   refreshProfile: async () => {},
+  acknowledgeEmailVerified: () => {},
   signIn: async () => ({}),
   signUp: async () => ({}),
   signOut: async () => {},
@@ -50,19 +54,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
+  const [emailConfirmedOverride, setEmailConfirmedOverride] = useState(false);
   const supabase = createBrowserSupabaseClient();
 
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await fetch("/api/profile");
+      const res = await fetch("/api/profile", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setProfile(data.profile);
         setUsage(data.usage);
+        if (data.profile?.email_confirmed) {
+          setEmailConfirmedOverride(true);
+        }
       }
     } catch {
       // Profile fetch failed — user may not have a profile yet
     }
+  }, []);
+
+  const acknowledgeEmailVerified = useCallback(() => {
+    setEmailConfirmedOverride(true);
+    setProfile((current) => (current ? { ...current, email_confirmed: true } : current));
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -109,9 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ? getEffectiveTier(profile)
     : loading ? "trial" : "expired";
 
-  const emailConfirmed = !!profile?.email_confirmed;
+  const emailConfirmed = emailConfirmedOverride || !!profile?.email_confirmed;
 
   const trialDaysLeft = profile ? getTrialDaysLeft(profile.trial_end) : 0;
+  const trialEnd = profile?.trial_end ?? null;
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({
@@ -123,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       const msg = error.message || "Signup failed. Please try again.";
       if (msg.includes("rate") || msg.includes("limit") || error.status === 429) {
@@ -134,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { error: msg };
     }
-    return {};
+    return { signedIn: !!data.session };
   }
 
   async function resetPassword(email: string) {
@@ -190,7 +204,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         effectiveTier,
         emailConfirmed,
         trialDaysLeft,
+        trialEnd,
         refreshProfile,
+        acknowledgeEmailVerified,
         signIn,
         signUp,
         signOut,
