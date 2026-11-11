@@ -43,6 +43,12 @@
 5. **Document Results**: Add review section to `tasks/todo.md`
 6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
 
+## Frontend design and code review
+
+Before writing or reshaping UI, read and follow `.claude/plugins/doppelpod-anthropic/plugins/frontend-design/skills/frontend-design/SKILL.md` (Cursor agents: `.cursor/skills/frontend-design/SKILL.md`). Settle a visual direction for this product before writing code.
+
+When asked to review a pull request, read and follow `.claude/plugins/doppelpod-anthropic/plugins/code-review/commands/code-review.md`. Print the review in the session. Do not post GitHub comments unless the request includes `--comment` or explicitly asks to comment. See `docs/ai-plugins.md`.
+
 ## Core Principles
 
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.

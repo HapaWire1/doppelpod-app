@@ -41,6 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# claude code
-.claude/
+# claude code local state. Shared config below is committed.
+# Ignore contents, not the directory, so the negations can re-include files.
+.claude/*
 !.claude/memory/
+!.claude/settings.json
+!.claude/plugins/
