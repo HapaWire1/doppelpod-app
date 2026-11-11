@@ -1,0 +1,34 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "doppelpod-anthropic",
+  "description": "Pinned subset of anthropics/claude-plugins-official for DoppelPod: frontend-design 1.1.1 and code-review 1.0.1 from commit 43fd1f9db0941b2b83cb62268e35970d4a67c202. Not the full official marketplace.",
+  "owner": {
+    "name": "DoppelPod"
+  },
+  "plugins": [
+    {
+      "name": "frontend-design",
+      "description": "Create distinctive, production-grade frontend interfaces with high design quality. Generates creative, polished code that avoids generic AI aesthetics.",
+      "version": "1.1.1",
+      "author": {
+        "name": "Anthropic",
+        "email": "support@anthropic.com"
+      },
+      "source": "./plugins/frontend-design",
+      "category": "development",
+      "homepage": "https://github.com/anthropics/claude-plugins-official/tree/43fd1f9db0941b2b83cb62268e35970d4a67c202/plugins/frontend-design"
+    },
+    {
+      "name": "code-review",
+      "description": "Automated code review for pull requests using multiple specialized agents with confidence-based scoring to filter false positives",
+      "version": "1.0.1",
+      "author": {
+        "name": "Anthropic",
+        "email": "support@anthropic.com"
+      },
+      "source": "./plugins/code-review",
+      "category": "productivity",
+      "homepage": "https://github.com/anthropics/claude-plugins-official/tree/43fd1f9db0941b2b83cb62268e35970d4a67c202/plugins/code-review"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "extraKnownMarketplaces": {
+    "doppelpod-anthropic": {
+      "source": {
+        "source": "directory",
+        "path": "./.claude/plugins/doppelpod-anthropic"
+      },
+      "autoUpdate": false
+    }
+  },
+  "enabledPlugins": {
+    "frontend-design@doppelpod-anthropic": true,
+    "code-review@doppelpod-anthropic": true
+  }
+}

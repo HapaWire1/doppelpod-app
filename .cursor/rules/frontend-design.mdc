@@ -1,0 +1,7 @@
+---
+description: Before writing or reshaping UI, follow the vendored frontend-design skill
+globs: src/**/*.{tsx,css}
+alwaysApply: false
+---
+
+Before writing or reshaping UI, read and follow `.cursor/skills/frontend-design/SKILL.md`. Choose a visual direction for this product before writing code. The same skill is vendored for Claude Code at `.claude/plugins/doppelpod-anthropic/plugins/frontend-design/skills/frontend-design/SKILL.md`.
