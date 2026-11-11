@@ -15,7 +15,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <>
         <DemoTypewriter onSignup={() => setAuthOpen(true)} />
-        <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
+        <AuthModal
+          open={authOpen}
+          onOpenChange={setAuthOpen}
+          defaultTab="signup"
+          notice={{ kind: "trial" }}
+        />
       </>
     );
   }

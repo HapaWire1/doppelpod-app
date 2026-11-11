@@ -46,8 +46,8 @@ function SuccessContent() {
           Your DoppelPod {tierName} plan is now active. You have access to all{" "}
           {tierName} features including{" "}
           {tier === "elite"
-            ? "Claude Cowork, advanced video avatars, and priority generation."
-            : "unlimited AI posts, advanced voice cloning, and video avatars."}
+            ? "unlimited video avatars and priority rendering. Cowork and multi-platform posting are still coming soon."
+            : "voice generation, twin posts, and video avatars. Videos take 15–60 minutes. Cowork, the virality score, and multi-platform posting are still coming soon."}
         </p>
 
         <div className="rounded-lg border border-purple-500/30 bg-purple-950/20 px-4 py-3">

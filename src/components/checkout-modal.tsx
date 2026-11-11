@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { startStripeCheckout } from "@/lib/start-checkout";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -33,44 +34,15 @@ export function CheckoutModal({
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Map tiers to Stripe price IDs (set real IDs in production)
-  const monthlyPriceIds: Record<string, string> = {
-    pro: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "price_pro_placeholder",
-    elite: process.env.NEXT_PUBLIC_STRIPE_ELITE_PRICE_ID || "price_elite_placeholder",
-  };
-  const yearlyPriceIds: Record<string, string> = {
-    pro: process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRO_PRICE_ID || "price_yearly_pro_placeholder",
-    elite: process.env.NEXT_PUBLIC_STRIPE_YEARLY_ELITE_PRICE_ID || "price_yearly_elite_placeholder",
-  };
-  const priceIds = billingPeriod === "yearly" ? yearlyPriceIds : monthlyPriceIds;
-
   async function handleCheckout() {
     setStatus("loading");
     setErrorMsg("");
 
     try {
-      const res = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: tier.toLowerCase(), priceId: priceIds[tier.toLowerCase()] }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Checkout failed");
-      }
-
-      if (data.mock) {
-        // Mock flow — show success immediately
+      const result = await startStripeCheckout(tier, billingPeriod);
+      if (result.mock) {
         setStatus("success");
         setTimeout(() => onSuccess(tier), 1500);
-        return;
-      }
-
-      // Real Stripe — redirect to checkout
-      if (data.url) {
-        window.location.href = data.url;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";

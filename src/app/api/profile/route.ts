@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 import { createServerSupabaseClient, createAdminSupabaseClient } from "@/lib/supabase-server";
 import { Resend } from "resend";
 import { withCompTier } from "@/lib/comp-access";
@@ -13,7 +15,21 @@ function getTodayDate(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+/** Service role is production-only today. Reads must still succeed without it. */
+function tryAdminClient() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return null;
+  }
+  try {
+    return createAdminSupabaseClient();
+  } catch (err) {
+    console.error("[profile] Admin client unavailable:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export async function GET() {
+  try {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -23,15 +39,22 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Fetch profile
-  let { data: profile } = await supabase
+  // Fetch profile before any service-role work. Missing the service role
+  // must not turn a readable profile into a 500.
+  const { data: profileData, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single();
 
+  let profile = profileData;
+
+  if (profileError && profileError.code !== "PGRST116") {
+    console.error("[profile] Read failed:", profileError.message);
+  }
+
   // All profile/usage writes use service role — these columns are not user-editable via RLS
-  const admin = createAdminSupabaseClient();
+  const admin = tryAdminClient();
 
   // Sync profile fields from auth state
   if (profile) {
@@ -42,13 +65,13 @@ export async function GET() {
       updates.tier = profile.paid_tier;
     }
 
-    if (Object.keys(updates).length > 0) {
+    if (Object.keys(updates).length > 0 && admin) {
       await admin.from("profiles").update(updates).eq("id", user.id);
       Object.assign(profile, updates);
     }
   }
 
-  if (!profile) {
+  if (!profile && admin) {
     // Auto-create profile if missing (race condition on signup)
     const { data: newProfile } = await admin
       .from("profiles")
@@ -64,7 +87,7 @@ export async function GET() {
   }
 
   // Auto-send verification email on first visit (unverified + no token = never sent)
-  if (profile && !profile.email_confirmed && !profile.verification_token && user.email) {
+  if (admin && profile && !profile.email_confirmed && !profile.verification_token && user.email) {
     try {
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
@@ -102,7 +125,7 @@ export async function GET() {
     .eq("period", period)
     .single();
 
-  if (!usage) {
+  if (!usage && admin) {
     const { data: newUsage } = await admin
       .from("usage_tracking")
       .insert({ user_id: user.id, period })
@@ -112,7 +135,7 @@ export async function GET() {
   }
 
   // Reset daily cowork count if new day — use admin (UPDATE policy removed from RLS)
-  if (usage && usage.last_cowork_date !== getTodayDate()) {
+  if (admin && usage && usage.last_cowork_date !== getTodayDate()) {
     await admin
       .from("usage_tracking")
       .update({ cowork_sessions_today: 0, last_cowork_date: getTodayDate() })
@@ -122,8 +145,15 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({
-    profile: profile ? withCompTier(profile, user.email) : { id: user.id, tier: "expired", trial_end: null, voice_id: null },
-    usage: usage || { video_count: 0, cowork_sessions: 0, cowork_sessions_today: 0 },
-  });
+  return NextResponse.json(
+    {
+      profile: profile ? withCompTier(profile, user.email) : { id: user.id, tier: "expired", trial_end: null, voice_id: null },
+      usage: usage || { video_count: 0, cowork_sessions: 0, cowork_sessions_today: 0 },
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
+  } catch (err) {
+    console.error("[profile] Error:", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "Failed to load profile." }, { status: 500 });
+  }
 }

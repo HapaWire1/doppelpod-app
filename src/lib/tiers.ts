@@ -79,18 +79,21 @@ export function getEffectiveTier(profile: {
   // Comped testers/early adopters win over everything (no Stripe sub).
   const comp = profile.comp_tier?.toLowerCase();
   if (comp === "elite" || comp === "pro") return comp;
-  if (profile.tier === "trial") {
-// Any paid subscription takes precedence — paying customers should
-    // never see trial messaging or the trial countdown.
-    if (profile.paid_tier) {
-      return profile.paid_tier.toLowerCase() as TierName;
-    }
-    if (profile.trial_end && new Date(profile.trial_end) > new Date()) {
-      return "trial"; // active trial = Elite access
-    }
-    return "expired";
+
+  // A real subscription wins over the trial clock.
+  const paid = profile.paid_tier?.toLowerCase();
+  if (paid === "pro" || paid === "elite") return paid;
+
+  const trialEnd = profile.trial_end ? new Date(profile.trial_end) : null;
+  const trialKnown = !!trialEnd && !Number.isNaN(trialEnd.getTime());
+  if (trialKnown && trialEnd!.getTime() <= Date.now()) return "expired";
+  if (trialKnown && trialEnd!.getTime() > Date.now()) return "trial";
+
+  const stored = profile.tier?.toLowerCase();
+  if (stored === "pro" || stored === "elite" || stored === "trial" || stored === "expired") {
+    return stored;
   }
-  return profile.tier as TierName;
+  return "expired";
 }
 
 export function getTrialDaysLeft(trialEnd: string | null): number {

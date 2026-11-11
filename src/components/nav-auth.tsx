@@ -25,6 +25,12 @@ export function NavAuth() {
         >
           Dashboard
         </Link>
+        <Link
+          href="/account"
+          className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
+        >
+          Account
+        </Link>
         <Button
           size="sm"
           variant="outline"

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { AuthModal } from "@/components/auth-modal";
 
 const examples = [
   {
@@ -30,7 +29,6 @@ export function DemoTypewriter({ onSignup }: { onSignup: () => void }) {
   const [exampleIndex, setExampleIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("typing-input");
   const [charIndex, setCharIndex] = useState(0);
-  const [authOpen, setAuthOpen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const example = examples[exampleIndex];
@@ -135,13 +133,11 @@ export function DemoTypewriter({ onSignup }: { onSignup: () => void }) {
         <p className="text-xs text-muted-foreground">Ready to try for yourself?</p>
         <Button
           className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 hover:from-purple-700 hover:to-pink-700"
-          onClick={() => { onSignup(); setAuthOpen(true); }}
+          onClick={onSignup}
         >
           Create Free Account
         </Button>
       </div>
-
-      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
     </div>
   );
 }

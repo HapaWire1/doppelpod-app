@@ -132,7 +132,7 @@ export function AvatarUpload({ file, preview, onFileChange, disabled }: AvatarUp
             </button>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Drop a photo or click to upload &middot; default avatar for instant demo
+              Drop a photo or click to upload. A new video takes 15–60 minutes.
             </p>
           )}
         </div>

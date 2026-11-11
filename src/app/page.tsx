@@ -10,21 +10,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { CoworkModal } from "@/components/cowork-modal";
 import { CheckoutModal } from "@/components/checkout-modal";
+import { AuthModal, type AuthNotice } from "@/components/auth-modal";
 import { GenerateWidget } from "@/components/generate-widget";
 import { AuroraBackground } from "@/components/aurora-background";
 import { WaveformCanvas } from "@/components/waveform-canvas";
 import { NavAuth } from "@/components/nav-auth";
+import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { FeatureCard } from "@/components/feature-card";
-import { AuthModal } from "@/components/auth-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { SiteFooter } from "@/components/site-footer";
 import { AuthGate } from "@/components/auth-gate";
 import { useAuth } from "@/components/auth-provider";
-import { TIER_LIMITS } from "@/lib/tiers";
-import { getSupabase } from "@/lib/supabase";
+import {
+  ELITE_FEATURES,
+  ELITE_PRICE_MONTHLY,
+  ELITE_PRICE_YEARLY,
+  PRO_FEATURES,
+  PRO_PRICE_MONTHLY,
+  PRO_PRICE_YEARLY,
+  TRIAL_FEATURES,
+  featureLabel,
+  type PlanFeature,
+} from "@/lib/plans";
 
 const features = [
   {
@@ -115,56 +123,46 @@ const features = [
   },
 ];
 
-const pricing = [
+const pricing: Array<{
+  tier: string;
+  price: string;
+  yearlyTotal: string | null;
+  period: string;
+  description: string;
+  features: PlanFeature[];
+  cta: string;
+  highlight: "pro" | "elite" | null;
+  isTrial: boolean;
+}> = [
   {
     tier: "Trial",
     price: "Free",
     yearlyTotal: null,
     period: "",
-    description: "Unrestricted Elite access for 10 days",
-    features: [
-      "Unlimited voice generation",
-      "Unlimited video avatars",
-      "Full Claude Cowork (voice + text)",
-      "Priority rendering",
-      "All Elite features for 10 days",
-    ],
+    description: "Elite access for 10 days. No card required.",
+    features: TRIAL_FEATURES,
     cta: "Start Trial",
     highlight: null,
     isTrial: true,
   },
   {
     tier: "Pro",
-    price: "$29",
-    yearlyTotal: "$290",
+    price: PRO_PRICE_MONTHLY,
+    yearlyTotal: PRO_PRICE_YEARLY,
     period: "/mo",
     description: "For serious creators and founders",
-    features: [
-      "Unlimited voice generation",
-      "10 video avatars/month",
-      "Basic Cowork (text-only, 10/day)",
-      "3 platforms",
-      "Virality predictor",
-      "Priority support",
-    ],
+    features: PRO_FEATURES,
     cta: "Go Pro",
     highlight: "pro",
     isTrial: false,
   },
   {
     tier: "Elite",
-    price: "$69",
-    yearlyTotal: "$690",
+    price: ELITE_PRICE_MONTHLY,
+    yearlyTotal: ELITE_PRICE_YEARLY,
     period: "/mo",
-    description: "Full autopilot for power users",
-    features: [
-      "Everything in Pro",
-      "Unlimited video avatars",
-      "Full Cowork (voice chat + unlimited)",
-      "Priority rendering",
-      "Unlimited platforms",
-      "Dedicated account manager",
-    ],
+    description: "More video and priority rendering",
+    features: ELITE_FEATURES,
     cta: "Go Elite",
     highlight: "elite",
     isTrial: false,
@@ -177,14 +175,13 @@ const fadeUp = {
 };
 
 export default function Home() {
-  const { user, effectiveTier, usage, refreshProfile } = useAuth();
-  const [email, setEmail] = useState("");
-  // Cowork modal state
-  const [coworkOpen, setCoworkOpen] = useState(false);
+  const { user, refreshProfile } = useAuth();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Checkout modal state
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [signupOpen, setSignupOpen] = useState(false);
+  const [authNotice, setAuthNotice] = useState<AuthNotice>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [checkoutTier, setCheckoutTier] = useState<{ tier: string; price: string; features: string[]; billingPeriod: "monthly" | "yearly" }>({ tier: "", price: "", features: [], billingPeriod: "monthly" });
   const [activePlan, setActivePlan] = useState<string | null>(null);
@@ -208,11 +205,24 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Sticky Nav */}
-      <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
+      <nav className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <span className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold text-transparent">
-            DoppelPod
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="flex flex-col justify-center gap-1.5 p-1 text-muted-foreground hover:text-foreground sm:hidden"
+              aria-label="Open navigation"
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen((open) => !open)}
+            >
+              <span className="block h-0.5 w-5 bg-current" />
+              <span className="block h-0.5 w-5 bg-current" />
+              <span className="block h-0.5 w-5 bg-current" />
+            </button>
+            <span className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-lg font-bold text-transparent">
+              DoppelPod
+            </span>
+          </div>
           <div className="hidden items-center gap-6 text-sm text-muted-foreground sm:flex">
             <a href="#features" className="transition-colors hover:text-foreground">Features</a>
             <a href="#pricing" className="transition-colors hover:text-foreground">Pricing</a>
@@ -220,10 +230,31 @@ export default function Home() {
           </div>
           <NavAuth />
         </div>
+        <MobileNavDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)}>
+          {[
+            ["Features", "#features"],
+            ["Pricing", "#pricing"],
+            ["Demo", "#demo"],
+          ].map(([label, href]) => (
+            <a
+              key={href}
+              href={href}
+              className="block border-b border-border/20 py-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              {label}
+            </a>
+          ))}
+          {user && (
+            <a href="/account" className="block border-b border-border/20 py-2 text-sm text-muted-foreground hover:text-foreground" onClick={() => setMobileNavOpen(false)}>
+              Account & billing
+            </a>
+          )}
+        </MobileNavDrawer>
       </nav>
 
       {/* Hero */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center px-4 pt-14 text-center">
+      <section className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 text-center">
         <AuroraBackground />
         <motion.div
           className="relative z-10 max-w-4xl space-y-6"
@@ -247,8 +278,7 @@ export default function Home() {
             </span>
           </h1>
           <p className="mx-auto max-w-2xl text-base text-foreground/75 sm:text-lg md:text-xl">
-            Clone your voice, post, engage — autopilot. Let your AI twin build
-            your brand while you sleep.
+            Clone your voice and draft posts in your style. Twin posts come back in seconds. Talking videos take 15–60 minutes — we email you when one is ready.
           </p>
 
           {/* Social proof */}
@@ -273,6 +303,7 @@ export default function Home() {
                 if (user) {
                   document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
                 } else {
+                  setAuthNotice({ kind: "trial" });
                   setSignupOpen(true);
                 }
               }}
@@ -296,7 +327,7 @@ export default function Home() {
       </section>
 
       {/* Features */}
-      <section className="px-4 py-16 sm:py-24 bg-muted/20" id="features">
+      <section className="scroll-mt-20 px-4 py-16 sm:py-24 bg-muted/20" id="features">
         <div className="mx-auto max-w-6xl">
           <motion.div
             className="mb-12 text-center sm:mb-16"
@@ -337,7 +368,7 @@ export default function Home() {
       </section>
 
       {/* Pricing */}
-      <section className="px-4 py-16 sm:py-24" id="pricing">
+      <section className="scroll-mt-20 px-4 py-16 sm:py-24" id="pricing">
         <div className="mx-auto max-w-5xl">
           <motion.div
             className="mb-12 text-center sm:mb-16"
@@ -424,9 +455,18 @@ export default function Home() {
                   <CardContent className="flex flex-col flex-1 space-y-4">
                     <ul className="space-y-2 text-xs sm:text-sm flex-1">
                       {plan.features.map((feat) => (
-                        <li key={feat} className="flex items-center gap-2">
-                          <span className="text-purple-400">&#10003;</span>
-                          {feat}
+                        <li key={feat.label} className="flex items-center gap-2">
+                          <span className={feat.comingSoon ? "text-muted-foreground" : "text-purple-400"}>
+                            {feat.comingSoon ? "–" : "✓"}
+                          </span>
+                          <span className={feat.comingSoon ? "text-muted-foreground" : undefined}>
+                            {feat.label}
+                            {feat.comingSoon && (
+                              <span className="ml-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-300">
+                                Coming soon
+                              </span>
+                            )}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -449,16 +489,19 @@ export default function Home() {
                         variant={plan.highlight ? "default" : "outline"}
                         onClick={() => {
                           if (plan.isTrial) {
+                            setAuthNotice({ kind: "trial" });
                             setSignupOpen(true);
                             return;
                           }
                           const displayPrice = billingPeriod === "yearly" && plan.yearlyTotal ? plan.yearlyTotal : plan.price;
+                          const featureLabels = plan.features.map(featureLabel);
                           if (!user) {
-                            pendingCheckout.current = { tier: plan.tier, price: displayPrice, features: plan.features, billingPeriod };
+                            pendingCheckout.current = { tier: plan.tier, price: displayPrice, features: featureLabels, billingPeriod };
+                            setAuthNotice({ kind: "checkout", tier: plan.tier, price: displayPrice });
                             setSignupOpen(true);
                             return;
                           }
-                          setCheckoutTier({ tier: plan.tier, price: displayPrice, features: plan.features, billingPeriod });
+                          setCheckoutTier({ tier: plan.tier, price: displayPrice, features: featureLabels, billingPeriod });
                           setCheckoutOpen(true);
                         }}
                       >
@@ -474,7 +517,7 @@ export default function Home() {
       </section>
 
       {/* Interactive Demo */}
-      <section className="relative px-4 py-16 sm:py-24 bg-muted/20 overflow-hidden" id="demo">
+      <section className="relative scroll-mt-20 px-4 py-16 sm:py-24 bg-muted/20 overflow-hidden" id="demo">
         <WaveformCanvas active={isGenerating} />
         <div className="relative z-10 mx-auto max-w-2xl">
           <motion.div
@@ -489,13 +532,13 @@ export default function Home() {
               See your AI twin in action
             </h2>
             <p className="mt-3 text-sm text-foreground/70 sm:mt-4 sm:text-base">
-              Watch your AI twin transform your content in real time.
+              Text posts come back in seconds. A talking video takes 15–60 minutes, and we email you when it is ready.
             </p>
           </motion.div>
           <AuthGate>
           <Card className="border-border/50 bg-card/50 backdrop-blur transition-all hover:shadow-lg hover:shadow-purple-500/10">
             <CardContent className="p-4 sm:p-6">
-              <GenerateWidget onCoworkOpen={() => setCoworkOpen(true)} onLoadingChange={setIsGenerating} placeholder="Type or paste your text here..." />
+              <GenerateWidget onLoadingChange={setIsGenerating} placeholder="Type a topic or paste a post..." />
             </CardContent>
           </Card>
           </AuthGate>
@@ -516,15 +559,6 @@ export default function Home() {
 
       <SiteFooter />
 
-      {/* Claude Cowork Modal */}
-      <CoworkModal
-        open={coworkOpen}
-        onOpenChange={setCoworkOpen}
-        initialScript=""
-        onScriptUpdate={() => {}}
-        voiceStrength={75}
-      />
-
       {/* Checkout Modal */}
       <CheckoutModal
         open={checkoutOpen}
@@ -541,7 +575,7 @@ export default function Home() {
       />
 
       {/* Signup Modal (from Start Trial CTAs) */}
-      <AuthModal open={signupOpen} onOpenChange={setSignupOpen} defaultTab="signup" />
+      <AuthModal open={signupOpen} onOpenChange={setSignupOpen} defaultTab="signup" notice={authNotice} />
 
       <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} userEmail={user?.email ?? null} />
     </div>
